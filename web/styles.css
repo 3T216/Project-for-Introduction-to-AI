@@ -360,17 +360,19 @@ select:focus-visible,
 /* POINT PICKER */
 .point-picker-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-3);
 }
 
 .point-picker {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3) var(--space-4);
   min-height: 72px;
+  min-width: 0;
+  overflow: hidden;
   text-align: left;
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
@@ -382,11 +384,16 @@ select:focus-visible,
               box-shadow var(--transition-fast);
 }
 
+.point-picker > div { min-width: 0; }
+
 .point-picker strong {
   display: block;
   font-size: var(--fs-base);
   font-weight: var(--fw-semibold);
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .point-picker p {
@@ -973,7 +980,7 @@ select:focus-visible,
   .results-panel { grid-area: results; }
 
   .network-map { min-height: 560px; height: 560px; }
-  .point-picker-row { grid-template-columns: 1fr 1fr; }
+  .point-picker-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
 @media (max-width: 767px) {
