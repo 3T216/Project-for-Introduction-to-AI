@@ -11,6 +11,7 @@
       crossorigin=""
     />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c74f1f'/><text x='50' y='62' font-size='40' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>M</text></svg>" />
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -87,14 +88,14 @@
 
             <div id="map-mode-panel" class="mode-panel hidden">
               <div class="point-picker-row">
-                <button type="button" id="set-start-button" class="point-picker">
+                <button type="button" id="set-start-button" class="point-picker" aria-pressed="false">
                   <span class="pin-dot pin-start"></span>
                   <div>
                     <strong>Điểm đi</strong>
                     <p id="start-point-summary">Chưa có điểm đi.</p>
                   </div>
                 </button>
-                <button type="button" id="set-goal-button" class="point-picker">
+                <button type="button" id="set-goal-button" class="point-picker" aria-pressed="false">
                   <span class="pin-dot pin-goal"></span>
                   <div>
                     <strong>Điểm đến</strong>
@@ -103,7 +104,7 @@
                 </button>
               </div>
               <div class="button-row">
-                <button type="submit" class="primary">Tìm đường từ điểm đã chọn</button>
+                <button type="submit" class="primary" disabled>Tìm đường từ điểm đã chọn</button>
                 <button type="button" id="reset-points-button" class="secondary">Xóa điểm</button>
               </div>
             </div>
@@ -122,10 +123,17 @@
           <div class="map-shell">
             <div class="map-toolbar">
               <div class="legend" id="line-legend"></div>
-              <div class="station-visibility-control" role="group" aria-label="Hiển thị ga">
-                <button type="button" data-visibility="all" class="visibility-toggle active">Tất cả</button>
-                <button type="button" data-visibility="dots" class="visibility-toggle">Chỉ chấm</button>
-                <button type="button" data-visibility="hidden" class="visibility-toggle">Ẩn</button>
+              <div class="map-filter-panel">
+                <p class="selection-caption">Hiển thị bản đồ</p>
+                <label class="filter-row">
+                  <input type="checkbox" id="show-stations" checked />
+                  <span>Trạm</span>
+                </label>
+                <label class="filter-row filter-master">
+                  <input type="checkbox" id="show-all-lines" checked />
+                  <span>Tất cả tuyến</span>
+                </label>
+                <div id="line-filter-grid" class="line-filter-grid"></div>
               </div>
               <div class="map-hint" id="map-hint">Chế độ hiện tại: chọn ga thủ công.</div>
             </div>

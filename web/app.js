@@ -29,6 +29,12 @@ const els = {
   setStartButton: document.querySelector("#set-start-button"),
   setGoalButton: document.querySelector("#set-goal-button"),
   newRouteButton: document.querySelector("#new-route-button"),
+  lineFilterGrid: document.querySelector("#line-filter-grid"),
+  showStationsCheckbox: document.querySelector("#show-stations"),
+  showAllLinesCheckbox: document.querySelector("#show-all-lines"),
+  // resolved after DOM + setMode call
+  stationSubmit: null,
+  mapSubmit: null,
 };
 
 const linePalette = [
@@ -69,17 +75,33 @@ const state = {
   goalNearest: null,
   pointSelection: null,
   pointSelectionTarget: null,
-  stationVisibility: "all",
   stationMarkers: [],
   map: null,
   baseEdgeLayer: null,
   stationLayer: null,
   routeLayer: null,
   selectionLayer: null,
+  // Phase 05: polyline cache
+  edgePolylines: new Map(),
+  // Phase 07: layer filter state
+  hiddenLines: new Set(),
+  showStations: true,
 };
+
+// --- Phase 01: setStatus helper ---
+function setStatus(text, statusState = "info") {
+  els.statusMessage.textContent = text;
+  els.statusMessage.dataset.state = statusState;
+}
 
 async function init() {
   initMap();
+
+  // resolve submit buttons after DOM is ready
+  els.stationSubmit = els.stationModePanel.querySelector("button[type='submit']");
+  els.mapSubmit = els.mapModePanel.querySelector("button[type='submit']");
+
+  setStatus("Đang tải dữ liệu mạng...", "loading");
 
   try {
     const network = await fetchJson("/api/network");
@@ -99,11 +121,13 @@ async function init() {
     renderBaseNetwork();
     fitMapToNetwork();
     setMode("station");
-    applyStationVisibility("all");
+    renderLineFilter();
+    applyLineVisibility();
+    updatePointSubmitState();
 
-    els.statusMessage.textContent = "Dữ liệu mạng đã sẵn sàng. Chọn ga hoặc click trên map.";
+    setStatus("Dữ liệu mạng đã sẵn sàng. Chọn ga hoặc click trên map.", "info");
   } catch (error) {
-    els.statusMessage.textContent = `Không tải được dữ liệu mạng: ${error.message}`;
+    setStatus(`Không tải được dữ liệu mạng: ${error.message}`, "error");
   }
 }
 
@@ -219,23 +243,56 @@ function renderBlockedSegments() {
     .join("");
 }
 
+// Phase 01: only set default when input is empty
 function renderStationOptions(stations) {
   els.stationOptions.innerHTML = stations
     .map((station) => `<option value="${escapeHtml(station.name)}"></option>`)
     .join("");
 
-  if (stations.some((station) => station.name === "Hongqiao Railway Station")) {
+  if (!els.startStation.value && stations.some((station) => station.name === "Hongqiao Railway Station")) {
     els.startStation.value = "Hongqiao Railway Station";
   }
-  if (stations.some((station) => station.name === "Century Avenue")) {
+  if (!els.goalStation.value && stations.some((station) => station.name === "Century Avenue")) {
     els.goalStation.value = "Century Avenue";
   }
+}
+
+// --- Phase 05: edgeStyle pure function ---
+function edgeStyle(edge) {
+  const blocked = state.blockedLines.has(edge.line)
+    || state.blockedSegments.has(segmentKey(edge.source, edge.target));
+  return {
+    bg: {
+      color: blocked ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.92)",
+      weight: blocked ? 5 : 7,
+      opacity: blocked ? 0.12 : 0.88,
+      dashArray: blocked ? "7 8" : null,
+    },
+    fg: {
+      color: state.lineColors.get(edge.line) ?? "#666",
+      weight: blocked ? 2.6 : 4.2,
+      opacity: blocked ? 0.16 : 0.82,
+      dashArray: blocked ? "7 8" : null,
+    },
+  };
+}
+
+// Phase 05: restyleEdges — only update style, no rebuild
+function restyleEdges() {
+  state.edgePolylines.forEach(({ bgLine, fgLine, edge }) => {
+    const style = edgeStyle(edge);
+    bgLine.setStyle(style.bg);
+    fgLine.setStyle(style.fg);
+  });
+  // reapply line visibility after restyle
+  applyLineVisibility();
 }
 
 function renderBaseNetwork() {
   state.baseEdgeLayer.clearLayers();
   state.stationLayer.clearLayers();
   state.stationMarkers = [];
+  state.edgePolylines.clear();
 
   state.edges.forEach((edge) => {
     const source = state.stationByName.get(edge.source);
@@ -244,30 +301,26 @@ function renderBaseNetwork() {
       return;
     }
 
-    const blocked = state.blockedLines.has(edge.line);
-    const blockedSegment = state.blockedSegments.has(segmentKey(edge.source, edge.target));
+    const style = edgeStyle(edge);
     const latLngs = [
       [source.lat, source.lon],
       [target.lat, target.lon],
     ];
 
-    L.polyline(latLngs, {
-      color: blocked || blockedSegment ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.92)",
-      weight: blocked || blockedSegment ? 5 : 7,
-      opacity: blocked || blockedSegment ? 0.12 : 0.88,
-      dashArray: blocked || blockedSegment ? "7 8" : null,
+    const bgLine = L.polyline(latLngs, {
+      ...style.bg,
       interactive: false,
       pane: "metroBasePane",
     }).addTo(state.baseEdgeLayer);
 
-    L.polyline(latLngs, {
-      color: state.lineColors.get(edge.line) ?? "#666",
-      weight: blocked || blockedSegment ? 2.6 : 4.2,
-      opacity: blocked || blockedSegment ? 0.16 : 0.82,
-      dashArray: blocked || blockedSegment ? "7 8" : null,
+    const fgLine = L.polyline(latLngs, {
+      ...style.fg,
       interactive: false,
       pane: "metroBasePane",
     }).addTo(state.baseEdgeLayer);
+
+    const key = `${edge.source}|||${edge.target}|||${edge.line}`;
+    state.edgePolylines.set(key, { bgLine, fgLine, edge });
   });
 
   state.stations.forEach((station) => {
@@ -285,7 +338,8 @@ function renderBaseNetwork() {
     state.stationMarkers.push(marker);
   });
 
-  applyStationVisibility(state.stationVisibility);
+  // apply station visibility from Phase 07 state
+  applyStationsVisibility();
 }
 
 function fitMapToNetwork() {
@@ -425,7 +479,7 @@ function highlightPath(result) {
 
 function renderResults(payload) {
   els.resultsGrid.innerHTML = "";
-  els.statusMessage.textContent = `Lộ trình từ ${payload.start} đến ${payload.goal}`;
+  setStatus(`Lộ trình từ ${payload.start} đến ${payload.goal}`, "success");
 
   state.pointSelection = payload.point_selection ?? null;
   state.startNearest = payload.point_selection?.start_station ?? null;
@@ -515,6 +569,13 @@ function renderSelectionSummary(selection) {
   `;
 }
 
+// Phase 08: updatePointSubmitState
+function updatePointSubmitState() {
+  if (els.mapSubmit) {
+    els.mapSubmit.disabled = !(state.startPoint && state.goalPoint);
+  }
+}
+
 function resetPointSelection() {
   state.startPoint = null;
   state.goalPoint = null;
@@ -522,31 +583,14 @@ function resetPointSelection() {
   state.goalNearest = null;
   state.pointSelection = null;
   els.startPointSummary.textContent = "Chưa có điểm đi.";
+  els.startPointSummary.title = "";
   els.goalPointSummary.textContent = "Chưa có điểm đến.";
+  els.goalPointSummary.title = "";
   els.selectionSummaryCard.classList.add("hidden");
   els.selectionSummaryCard.innerHTML = "";
   renderSelectionLayer();
   togglePointSelection(null);
-}
-
-function applyStationVisibility(mode) {
-  state.stationVisibility = mode;
-  if (mode === "hidden") {
-    state.map.removeLayer(state.stationLayer);
-  } else {
-    if (!state.map.hasLayer(state.stationLayer)) {
-      state.stationLayer.addTo(state.map);
-    }
-    state.stationMarkers.forEach((marker) => {
-      marker.unbindTooltip();
-      if (mode === "all") {
-        marker.bindTooltip(marker._stationName, { direction: "top", offset: [0, -4] });
-      }
-    });
-  }
-  document.querySelectorAll(".visibility-toggle").forEach((btn) =>
-    btn.classList.toggle("active", btn.dataset.visibility === mode),
-  );
+  updatePointSubmitState();
 }
 
 function clearRouteAndSelection() {
@@ -555,10 +599,11 @@ function clearRouteAndSelection() {
   els.resultsGrid.innerHTML = "";
   els.selectionSummaryCard.classList.add("hidden");
   els.selectionSummaryCard.innerHTML = "";
-  els.statusMessage.textContent = "Sẵn sàng tìm tuyến mới. Chọn ga hoặc click map.";
+  setStatus("Sẵn sàng tìm tuyến mới. Chọn ga hoặc click map.", "info");
   if (state.networkBounds?.isValid()) {
     state.map.fitBounds(state.networkBounds.pad(0.12));
   }
+  updatePointSubmitState();
 }
 
 function addBlockedSegment() {
@@ -566,15 +611,15 @@ function addBlockedSegment() {
   const target = els.blockedSegmentGoal.value.trim();
 
   if (!source || !target) {
-    els.statusMessage.textContent = "Hãy nhập đủ 2 ga cho đoạn bị cấm.";
+    setStatus("Hãy nhập đủ 2 ga cho đoạn bị cấm.", "error");
     return;
   }
   if (source === target) {
-    els.statusMessage.textContent = "Đoạn bị cấm phải gồm 2 ga khác nhau.";
+    setStatus("Đoạn bị cấm phải gồm 2 ga khác nhau.", "error");
     return;
   }
   if (!state.stationByName.has(source) || !state.stationByName.has(target)) {
-    els.statusMessage.textContent = "Tên ga trong đoạn bị cấm không hợp lệ.";
+    setStatus("Tên ga trong đoạn bị cấm không hợp lệ.", "error");
     return;
   }
 
@@ -582,20 +627,20 @@ function addBlockedSegment() {
   els.blockedSegmentStart.value = "";
   els.blockedSegmentGoal.value = "";
   renderBlockedSegments();
-  renderBaseNetwork();
-  els.statusMessage.textContent = "Đã thêm đoạn bị cấm.";
+  restyleEdges();
+  setStatus("Đã thêm đoạn bị cấm.", "info");
 }
 
 function removeBlockedSegment(key) {
   state.blockedSegments.delete(key);
   renderBlockedSegments();
-  renderBaseNetwork();
+  restyleEdges();
 }
 
 function clearBlockedSegments() {
   state.blockedSegments.clear();
   renderBlockedSegments();
-  renderBaseNetwork();
+  restyleEdges();
 }
 
 function updateMapHint() {
@@ -612,6 +657,7 @@ function updateMapHint() {
   }
 }
 
+// Phase 01: aria-pressed on point-picker buttons
 function togglePointSelection(target) {
   state.pointSelectionTarget = state.pointSelectionTarget === target ? null : target;
   if (target === null) {
@@ -619,10 +665,13 @@ function togglePointSelection(target) {
   }
   els.setStartButton.classList.toggle("active", state.pointSelectionTarget === "start");
   els.setGoalButton.classList.toggle("active", state.pointSelectionTarget === "goal");
+  els.setStartButton.setAttribute("aria-pressed", state.pointSelectionTarget === "start" ? "true" : "false");
+  els.setGoalButton.setAttribute("aria-pressed", state.pointSelectionTarget === "goal" ? "true" : "false");
   els.networkMap.classList.toggle("selecting-point", !!state.pointSelectionTarget);
   updateMapHint();
 }
 
+// Phase 01: toggle submit button type based on active mode
 function setMode(mode) {
   state.mode = mode;
   togglePointSelection(null);
@@ -631,6 +680,12 @@ function setMode(mode) {
   els.mapModeButton.classList.toggle("active", !stationMode);
   els.stationModePanel.classList.toggle("hidden", !stationMode);
   els.mapModePanel.classList.toggle("hidden", stationMode);
+  if (els.stationSubmit) {
+    els.stationSubmit.type = stationMode ? "submit" : "button";
+  }
+  if (els.mapSubmit) {
+    els.mapSubmit.type = stationMode ? "button" : "submit";
+  }
   updateMapHint();
 }
 
@@ -650,35 +705,46 @@ async function onMapClick(event) {
     state.startNearest = null;
     state.pointSelection = null;
     els.startPointSummary.textContent = "Đang tìm ga gần nhất cho điểm đi...";
+    els.startPointSummary.title = "";
   } else {
     state.goalPoint = point;
     state.goalNearest = null;
     state.pointSelection = null;
     els.goalPointSummary.textContent = "Đang tìm ga gần nhất cho điểm đến...";
+    els.goalPointSummary.title = "";
   }
 
   togglePointSelection(null);
   renderSelectionLayer();
+  updatePointSubmitState();
 
   try {
     const nearest = await fetchJson(`/api/nearest-station?lat=${point.lat}&lon=${point.lon}`);
     if (target === "start" && state.startPoint?.lat === point.lat && state.startPoint?.lon === point.lon) {
       state.startNearest = nearest.station;
       els.startPointSummary.textContent = pointSummary(point, nearest.station);
+      els.startPointSummary.title = pointSummaryFull(point, nearest.station);
     }
     if (target === "goal" && state.goalPoint?.lat === point.lat && state.goalPoint?.lon === point.lon) {
       state.goalNearest = nearest.station;
       els.goalPointSummary.textContent = pointSummary(point, nearest.station);
+      els.goalPointSummary.title = pointSummaryFull(point, nearest.station);
     }
     renderSelectionLayer();
-    els.statusMessage.textContent = "Đã cập nhật điểm trên map.";
+    setStatus("Đã cập nhật điểm trên map.", "info");
   } catch (error) {
-    els.statusMessage.textContent = error.message;
+    setStatus(error.message, "error");
   }
 }
 
-function pointSummary(point, station) {
-  return `Lat ${point.lat.toFixed(5)}, Lon ${point.lon.toFixed(5)}. Ga gần nhất: ${station.name} (${station.distance_km.toFixed(2)} km)`;
+// Phase 08: short form for card display (_point kept for API symmetry with pointSummaryFull)
+function pointSummary(_point, station) {
+  return `${station.name} · ${station.distance_km.toFixed(2)} km`;
+}
+
+// Phase 08: full form for tooltip title
+function pointSummaryFull(point, station) {
+  return `Lat ${point.lat.toFixed(5)}, Lon ${point.lon.toFixed(5)} — Ga gần nhất: ${station.name} (${station.distance_km.toFixed(2)} km)`;
 }
 
 function blockedLinesQueryString() {
@@ -717,7 +783,7 @@ async function onSubmit(event) {
     const start = els.startStation.value.trim();
     const goal = els.goalStation.value.trim();
     if (!start || !goal) {
-      els.statusMessage.textContent = "Bạn cần chọn đủ 2 ga.";
+      setStatus("Bạn cần chọn đủ 2 ga.", "error");
       return;
     }
 
@@ -727,31 +793,31 @@ async function onSubmit(event) {
     renderSelectionSummary(null);
     renderSelectionLayer();
 
-    els.statusMessage.textContent = "Đang tính toán lộ trình...";
+    setStatus("Đang tính toán lộ trình...", "loading");
     try {
       const payload = await fetchJson(
         `/api/routes?start=${encodeURIComponent(start)}&goal=${encodeURIComponent(goal)}${algorithmQuery}${blockedLinesQuery}${blockedSegmentsQuery}`,
       );
       renderResults(payload);
     } catch (error) {
-      els.statusMessage.textContent = error.message;
+      setStatus(error.message, "error");
     }
     return;
   }
 
   if (!state.startPoint || !state.goalPoint) {
-    els.statusMessage.textContent = "Hãy click lên map để chọn đủ điểm đi và điểm đến.";
+    setStatus("Hãy click lên map để chọn đủ điểm đi và điểm đến.", "error");
     return;
   }
 
-  els.statusMessage.textContent = "Đang tìm ga gần nhất và tính lộ trình...";
+  setStatus("Đang tìm ga gần nhất và tính lộ trình...", "loading");
   try {
     const payload = await fetchJson(
       `/api/routes-by-points?start_lat=${state.startPoint.lat}&start_lon=${state.startPoint.lon}&goal_lat=${state.goalPoint.lat}&goal_lon=${state.goalPoint.lon}${algorithmQuery}${blockedLinesQuery}${blockedSegmentsQuery}`,
     );
     renderResults(payload);
   } catch (error) {
-    els.statusMessage.textContent = error.message;
+    setStatus(error.message, "error");
   }
 }
 
@@ -773,14 +839,14 @@ function onBlockedLinesChange(event) {
     state.blockedLines.delete(line);
   }
   renderLegend();
-  renderBaseNetwork();
+  restyleEdges();
 }
 
 function clearBlockedLines() {
   state.blockedLines.clear();
   renderBlockedLines();
   renderLegend();
-  renderBaseNetwork();
+  restyleEdges();
 }
 
 function onBlockedSegmentsClick(event) {
@@ -791,6 +857,75 @@ function onBlockedSegmentsClick(event) {
   removeBlockedSegment(button.dataset.segmentKey);
 }
 
+// --- Phase 07: layer filter functions ---
+
+function renderLineFilter() {
+  if (!els.lineFilterGrid) return;
+  els.lineFilterGrid.innerHTML = [...state.lines].sort().map((line) => `
+    <label class="filter-row filter-line">
+      <input type="checkbox" data-line="${escapeHtml(line)}"
+             ${state.hiddenLines.has(line) ? "" : "checked"} />
+      <span class="line-dot" style="background:${state.lineColors.get(line) ?? "#777"}"></span>
+      <span>${escapeHtml(line)}</span>
+    </label>
+  `).join("");
+}
+
+function applyLineVisibility() {
+  state.edgePolylines.forEach(({ bgLine, fgLine, edge }) => {
+    if (state.hiddenLines.has(edge.line)) {
+      bgLine.setStyle({ opacity: 0, interactive: false });
+      fgLine.setStyle({ opacity: 0, interactive: false });
+    } else {
+      const style = edgeStyle(edge);
+      bgLine.setStyle(style.bg);
+      fgLine.setStyle(style.fg);
+    }
+  });
+}
+
+function applyStationsVisibility() {
+  if (state.showStations) {
+    if (!state.map.hasLayer(state.stationLayer)) {
+      state.stationLayer.addTo(state.map);
+    }
+  } else {
+    state.map.removeLayer(state.stationLayer);
+  }
+}
+
+function onLineFilterChange(e) {
+  const line = e.target.dataset.line;
+  if (!line) return;
+  if (e.target.checked) {
+    state.hiddenLines.delete(line);
+  } else {
+    state.hiddenLines.add(line);
+  }
+  // sync master checkbox
+  const allVisible = state.hiddenLines.size === 0;
+  if (els.showAllLinesCheckbox) {
+    els.showAllLinesCheckbox.checked = allVisible;
+  }
+  applyLineVisibility();
+}
+
+function onShowAllLinesChange(e) {
+  if (e.target.checked) {
+    state.hiddenLines.clear();
+  } else {
+    state.lines.forEach((l) => state.hiddenLines.add(l));
+  }
+  renderLineFilter();
+  applyLineVisibility();
+}
+
+function onShowStationsChange(e) {
+  state.showStations = e.target.checked;
+  applyStationsVisibility();
+}
+
+// --- Event listeners ---
 async function fetchJson(url) {
   const response = await fetch(url);
   const payload = await response.json();
@@ -822,9 +957,24 @@ els.blockedSegmentsList.addEventListener("click", onBlockedSegmentsClick);
 els.setStartButton.addEventListener("click", () => togglePointSelection("start"));
 els.setGoalButton.addEventListener("click", () => togglePointSelection("goal"));
 els.newRouteButton.addEventListener("click", clearRouteAndSelection);
-document.querySelector(".station-visibility-control").addEventListener("click", (event) => {
-  const btn = event.target.closest(".visibility-toggle");
-  if (btn) applyStationVisibility(btn.dataset.visibility);
+
+// Phase 07: filter panel listeners
+if (els.lineFilterGrid) {
+  els.lineFilterGrid.addEventListener("change", onLineFilterChange);
+}
+if (els.showAllLinesCheckbox) {
+  els.showAllLinesCheckbox.addEventListener("change", onShowAllLinesChange);
+}
+if (els.showStationsCheckbox) {
+  els.showStationsCheckbox.addEventListener("change", onShowStationsChange);
+}
+
+// Phase 01: Esc key cancels point selection
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.pointSelectionTarget) {
+    togglePointSelection(null);
+    e.preventDefault();
+  }
 });
 
 init();
