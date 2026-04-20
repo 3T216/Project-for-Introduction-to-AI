@@ -1,7 +1,14 @@
 import unittest
 
-from metro_app.data import DATA_SOURCE, STATIONS
-from metro_app.service import available_algorithms, available_lines, find_nearest_station, find_routes
+from metro_app.data import DATA_SOURCE, GRAPH, STATIONS
+from metro_app.algorithms import greedy_best_first_search
+from metro_app.service import (
+    available_algorithms,
+    available_lines,
+    find_nearest_station,
+    find_routes,
+    find_routes_by_points,
+)
 from server import _route_by_points_payload, _route_payload, _station_payload
 
 
@@ -106,6 +113,36 @@ class RouteSearchTests(unittest.TestCase):
         self.assertEqual(len(payload["blocked_segments"]), 1)
         self.assertEqual(payload["blocked_segments"][0]["source"], "East Nanjing Road")
         self.assertEqual(payload["blocked_segments"][0]["target"], "Lujiazui")
+
+
+    def test_nearest_station_rejects_far_point(self) -> None:
+        # lat=0, lon=0 is off the coast of Africa (~10,000 km from Shanghai)
+        with self.assertRaises(ValueError) as context:
+            find_nearest_station(0.0, 0.0)
+        message = str(context.exception)
+        self.assertTrue(
+            "ngoài vùng" in message or "Thượng Hải" in message,
+            f"Expected Vietnamese out-of-bounds message, got: {message}",
+        )
+
+    def test_same_station_points_raise_clear_error(self) -> None:
+        # Two points very close to Century Avenue (31.2303, 121.5190) — both resolve to same station
+        with self.assertRaises(ValueError) as context:
+            find_routes_by_points(31.2303, 121.5190, 31.2304, 121.5191)
+        message = str(context.exception)
+        self.assertTrue(
+            "thuộc ga" in message or "cùng" in message,
+            f"Expected same-station error message, got: {message}",
+        )
+
+    def test_greedy_does_not_overwrite_came_from(self) -> None:
+        # Pure greedy should produce a stable (deterministic) path across runs
+        start, goal = "Hongqiao Railway Station", "Century Avenue"
+        result1 = greedy_best_first_search(GRAPH, STATIONS, start, goal)
+        result2 = greedy_best_first_search(GRAPH, STATIONS, start, goal)
+        self.assertEqual(result1.path, result2.path)
+        self.assertEqual(result1.path[0], start)
+        self.assertEqual(result1.path[-1], goal)
 
 
 if __name__ == "__main__":

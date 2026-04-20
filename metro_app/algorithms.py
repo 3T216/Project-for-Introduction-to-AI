@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import heapq
-import math
 from dataclasses import dataclass
 from itertools import count
 
 from metro_app.data import Edge, Station
+from metro_app.geo import haversine_km
 
 
 @dataclass
@@ -48,17 +48,7 @@ def _path_distance(graph: dict[str, list[Edge]], path: list[str], lines: list[st
 def heuristic(stations: dict[str, Station], current: str, goal: str) -> float:
     here = stations[current]
     destination = stations[goal]
-    return _haversine_km(here.lat, here.lon, destination.lat, destination.lon) / 35.0 * 60.0
-
-
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    radius = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return haversine_km(here.lat, here.lon, destination.lat, destination.lon) / 35.0 * 60.0
 
 
 def uniform_cost_search(
@@ -126,12 +116,13 @@ def greedy_best_first_search(
         for edge in graph[current]:
             if edge.target in visited:
                 continue
+            if edge.target in came_from:
+                continue
+            came_from[edge.target] = (current, edge.line)
             new_cost = current_cost + edge.travel_time
-            if edge.target not in best_cost or new_cost < best_cost[edge.target]:
-                best_cost[edge.target] = new_cost
-                came_from[edge.target] = (current, edge.line)
-                priority = heuristic(stations, edge.target, goal)
-                heapq.heappush(queue, (priority, new_cost, next(tracker), edge.target))
+            best_cost[edge.target] = new_cost
+            priority = heuristic(stations, edge.target, goal)
+            heapq.heappush(queue, (priority, new_cost, next(tracker), edge.target))
 
     raise ValueError(f"Cannot reach {goal} from {start}.")
 

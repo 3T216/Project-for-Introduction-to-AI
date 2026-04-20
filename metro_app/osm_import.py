@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -9,6 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 from metro_app.data import DATA_DIR
+from metro_app.geo import haversine_km
 
 
 OVERPASS_URLS = (
@@ -44,16 +44,6 @@ def _element_coords(element: dict) -> tuple[float, float] | None:
     if center:
         return center["lat"], center["lon"]
     return None
-
-
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    radius = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def _estimate_minutes(distance_km: float) -> float:
@@ -136,7 +126,7 @@ def build_dataset(elements: list[dict]) -> dict:
         for source, target in zip(ordered_stations, ordered_stations[1:]):
             source_station = stations[source]
             target_station = stations[target]
-            distance_km = _haversine_km(
+            distance_km = haversine_km(
                 float(source_station["lat"]),
                 float(source_station["lon"]),
                 float(target_station["lat"]),

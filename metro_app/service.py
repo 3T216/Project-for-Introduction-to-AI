@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 from metro_app.algorithms import (
     SearchResult,
     a_star_search,
@@ -9,16 +7,9 @@ from metro_app.algorithms import (
     uniform_cost_search,
 )
 from metro_app.data import DATA_SOURCE, Edge, GRAPH, STATIONS
+from metro_app.geo import haversine_km
 
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    radius = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+MAX_NEAREST_DISTANCE_KM = 50.0
 
 
 def find_nearest_station(lat: float, lon: float) -> tuple[str, float]:
@@ -33,6 +24,12 @@ def find_nearest_station(lat: float, lon: float) -> tuple[str, float]:
 
     if not nearest_name:
         raise ValueError("Không tìm thấy ga nào trong bộ dữ liệu hiện tại.")
+
+    if nearest_distance > MAX_NEAREST_DISTANCE_KM:
+        raise ValueError(
+            f"Điểm bạn chọn nằm ngoài vùng Thượng Hải "
+            f"(cách ga gần nhất {nearest_distance:.1f} km)."
+        )
 
     return nearest_name, round(nearest_distance, 3)
 
@@ -141,6 +138,25 @@ def find_routes(
             blocked_text = ", ".join(f"{segment[0]} - {segment[1]}" for segment in sorted(normalized_segments))
             raise ValueError(f"Không tìm được lộ trình hợp lệ khi cấm các đoạn: {blocked_text}.") from error
         raise
+
+
+def find_routes_by_points(
+    start_lat: float,
+    start_lon: float,
+    goal_lat: float,
+    goal_lon: float,
+    blocked_lines: set[str] | None = None,
+    blocked_segments: set[tuple[str, str]] | None = None,
+    algorithm: str | None = None,
+) -> list[SearchResult]:
+    start_station_name, _ = find_nearest_station(start_lat, start_lon)
+    goal_station_name, _ = find_nearest_station(goal_lat, goal_lon)
+    if start_station_name == goal_station_name:
+        raise ValueError(
+            f"Hai điểm bạn chọn đều thuộc ga {start_station_name}. "
+            f"Hãy chọn 2 điểm xa nhau hơn."
+        )
+    return find_routes(start_station_name, goal_station_name, blocked_lines, blocked_segments, algorithm)
 
 
 def summarize_segments(path: list[str], lines: list[str]) -> list[str]:

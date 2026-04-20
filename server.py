@@ -110,6 +110,11 @@ def _route_by_points_payload(
 ) -> dict[str, object]:
     start_station_name, start_walk_km = find_nearest_station(start_lat, start_lon)
     goal_station_name, goal_walk_km = find_nearest_station(goal_lat, goal_lon)
+    if start_station_name == goal_station_name:
+        raise ValueError(
+            f"Hai điểm bạn chọn đều thuộc ga {start_station_name}. "
+            "Hãy chọn 2 điểm xa nhau hơn."
+        )
     payload = _route_payload(start_station_name, goal_station_name, blocked_lines, blocked_segments, algorithm)
     payload["point_selection"] = {
         "start_point": {"lat": start_lat, "lon": start_lon},
@@ -158,7 +163,12 @@ class MetroRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"error": "lat và lon phải là số hợp lệ."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
-            self._send_json(_nearest_station_payload(lat, lon))
+            try:
+                payload = _nearest_station_payload(lat, lon)
+            except ValueError as error:
+                self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(payload)
             return
 
         if parsed.path == "/api/routes":
