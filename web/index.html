@@ -63,8 +63,12 @@
                 </button>
               </div>
               <div class="blocked-segment-form">
-                <input id="blocked-segment-start" list="station-options" placeholder="Ga đầu đoạn..." />
-                <input id="blocked-segment-goal" list="station-options" placeholder="Ga cuối đoạn..." />
+                <select id="blocked-segment-start">
+                  <option value="" disabled selected>Ga đầu đoạn...</option>
+                </select>
+                <select id="blocked-segment-goal">
+                  <option value="" disabled selected>Ga cuối đoạn...</option>
+                </select>
                 <button type="button" id="add-blocked-segment-button" class="secondary btn-compact">Thêm đoạn</button>
               </div>
               <div id="blocked-segments-list" class="blocked-segments-list"></div>
@@ -73,19 +77,17 @@
             <div id="station-mode-panel" class="mode-panel">
               <label>
                 <span>Ga đi</span>
-                <input id="start-station" list="station-options" placeholder="Nhập tên ga..." required />
+                <select id="start-station" required></select>
               </label>
               <label>
                 <span>Ga đến</span>
-                <input id="goal-station" list="station-options" placeholder="Nhập tên ga..." required />
+                <select id="goal-station" required></select>
               </label>
               <div class="button-row">
                 <button type="submit" class="primary">Tìm đường</button>
                 <button type="button" id="swap-button" class="secondary">Đảo chiều</button>
               </div>
             </div>
-
-            <datalist id="station-options"></datalist>
 
             <div id="map-mode-panel" class="mode-panel hidden">
               <div class="point-picker-row">

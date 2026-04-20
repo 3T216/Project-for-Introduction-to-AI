@@ -1,7 +1,6 @@
 const els = {
   startStation: document.querySelector("#start-station"),
   goalStation: document.querySelector("#goal-station"),
-  stationOptions: document.querySelector("#station-options"),
   algorithmSelect: document.querySelector("#algorithm-select"),
   routeForm: document.querySelector("#route-form"),
   swapButton: document.querySelector("#swap-button"),
@@ -247,9 +246,17 @@ function renderBlockedSegments() {
 
 // Phase 01: only set default when input is empty
 function renderStationOptions(stations) {
-  els.stationOptions.innerHTML = stations
-    .map((station) => `<option value="${escapeHtml(station.name)}"></option>`)
+  const sorted = [...stations].sort((a, b) => a.name.localeCompare(b.name));
+  const stationOptionsHtml = sorted
+    .map((station) => `<option value="${escapeHtml(station.name)}">${escapeHtml(station.name)}</option>`)
     .join("");
+
+  els.startStation.innerHTML = `<option value="" disabled>-- Chọn ga đi --</option>` + stationOptionsHtml;
+  els.goalStation.innerHTML = `<option value="" disabled>-- Chọn ga đến --</option>` + stationOptionsHtml;
+  els.blockedSegmentStart.innerHTML =
+    `<option value="" disabled selected>Ga đầu đoạn...</option>` + stationOptionsHtml;
+  els.blockedSegmentGoal.innerHTML =
+    `<option value="" disabled selected>Ga cuối đoạn...</option>` + stationOptionsHtml;
 
   if (!els.startStation.value && stations.some((station) => station.name === "Hongqiao Railway Station")) {
     els.startStation.value = "Hongqiao Railway Station";
