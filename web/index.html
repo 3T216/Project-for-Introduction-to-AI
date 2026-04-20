@@ -123,17 +123,25 @@
           <div class="map-shell">
             <div class="map-toolbar">
               <div class="legend" id="line-legend"></div>
-              <div class="map-filter-panel">
-                <p class="selection-caption">Hiển thị bản đồ</p>
-                <label class="filter-row">
-                  <input type="checkbox" id="show-stations" checked />
-                  <span>Trạm</span>
-                </label>
-                <label class="filter-row filter-master">
-                  <input type="checkbox" id="show-all-lines" checked />
-                  <span>Tất cả tuyến</span>
-                </label>
-                <div id="line-filter-grid" class="line-filter-grid"></div>
+              <div class="map-filter-popover">
+                <button type="button" id="filter-toggle" class="filter-toggle-btn"
+                        aria-expanded="false" aria-controls="filter-dropdown">
+                  <span class="filter-icon" aria-hidden="true">⚙</span>
+                  <span>Hiển thị</span>
+                </button>
+                <div id="filter-dropdown" class="filter-dropdown hidden"
+                     role="dialog" aria-label="Bộ lọc hiển thị">
+                  <p class="selection-caption">Hiển thị bản đồ</p>
+                  <label class="filter-row">
+                    <input type="checkbox" id="show-stations" checked />
+                    <span>Trạm</span>
+                  </label>
+                  <label class="filter-row filter-master">
+                    <input type="checkbox" id="show-all-lines" checked />
+                    <span>Tất cả tuyến</span>
+                  </label>
+                  <div id="line-filter-grid" class="line-filter-grid"></div>
+                </div>
               </div>
               <div class="map-hint" id="map-hint">Chế độ hiện tại: chọn ga thủ công.</div>
             </div>

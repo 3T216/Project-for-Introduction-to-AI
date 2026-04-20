@@ -878,17 +878,54 @@ select:focus-visible,
   border-radius: var(--radius-pill);
 }
 
-/* MAP FILTER PANEL (Phase 07) */
-.map-filter-panel {
-  display: grid;
+/* MAP FILTER POPOVER (Phase 09 — replaces inline Phase 07 panel) */
+.map-filter-popover {
+  position: relative;
+}
+
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-surface-2);
+  padding: 6px 12px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  min-height: 32px;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  min-width: 180px;
-  max-width: 320px;
+  color: var(--color-text);
 }
+.filter-toggle-btn:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-2);
+}
+.filter-toggle-btn.open {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.filter-icon { font-size: 14px; line-height: 1; }
+
+.filter-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1000;
+  width: 300px;
+  max-width: 90vw;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.filter-dropdown.hidden { display: none; }
 
 .filter-row {
   display: flex;
@@ -969,7 +1006,11 @@ select:focus-visible,
     align-items: stretch;
   }
 
-  .map-filter-panel { max-width: 100%; }
+  .filter-dropdown {
+    right: auto;
+    left: 0;
+    width: calc(100vw - var(--space-8));
+  }
 
   .button-row { flex-direction: column; }
   .button-row > * { width: 100%; }

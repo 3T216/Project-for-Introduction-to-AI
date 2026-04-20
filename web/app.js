@@ -32,6 +32,8 @@ const els = {
   lineFilterGrid: document.querySelector("#line-filter-grid"),
   showStationsCheckbox: document.querySelector("#show-stations"),
   showAllLinesCheckbox: document.querySelector("#show-all-lines"),
+  filterToggle: document.querySelector("#filter-toggle"),
+  filterDropdown: document.querySelector("#filter-dropdown"),
   // resolved after DOM + setMode call
   stationSubmit: null,
   mapSubmit: null,
@@ -969,9 +971,40 @@ if (els.showStationsCheckbox) {
   els.showStationsCheckbox.addEventListener("change", onShowStationsChange);
 }
 
-// Phase 01: Esc key cancels point selection
+// Phase 09: collapsible map filter popover
+function toggleFilterPopover(force) {
+  if (!els.filterDropdown || !els.filterToggle) return;
+  const open = typeof force === "boolean"
+    ? force
+    : els.filterDropdown.classList.contains("hidden");
+  els.filterDropdown.classList.toggle("hidden", !open);
+  els.filterToggle.classList.toggle("open", open);
+  els.filterToggle.setAttribute("aria-expanded", String(open));
+}
+
+if (els.filterToggle) {
+  els.filterToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleFilterPopover();
+  });
+}
+
+// Close popover when clicking outside it
+document.addEventListener("click", (e) => {
+  if (!els.filterDropdown || els.filterDropdown.classList.contains("hidden")) return;
+  if (e.target.closest(".map-filter-popover")) return;
+  toggleFilterPopover(false);
+});
+
+// Phase 01 + 09: Esc cancels point selection OR closes filter popover
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && state.pointSelectionTarget) {
+  if (e.key !== "Escape") return;
+  if (els.filterDropdown && !els.filterDropdown.classList.contains("hidden")) {
+    toggleFilterPopover(false);
+    e.preventDefault();
+    return;
+  }
+  if (state.pointSelectionTarget) {
     togglePointSelection(null);
     e.preventDefault();
   }
