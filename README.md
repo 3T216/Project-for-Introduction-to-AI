@@ -362,7 +362,7 @@ python -m unittest discover -s tests -v
 - **Lớp / Khoá:** *(điền tại đây)*
 - **Môn học:** Nhập môn Trí tuệ Nhân tạo
 - **Giảng viên:** *(điền tên GV)*
-- **Email:** `quang.hv210718@sis.hust.edu.vn`
+- **Email:** 
 
 Đồng đội (nếu project nhóm): *(điền)*
 
