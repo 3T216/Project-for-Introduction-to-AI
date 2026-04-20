@@ -26,6 +26,9 @@ const els = {
   goalPointSummary: document.querySelector("#goal-point-summary"),
   resetPointsButton: document.querySelector("#reset-points-button"),
   selectionSummaryCard: document.querySelector("#selection-summary-card"),
+  setStartButton: document.querySelector("#set-start-button"),
+  setGoalButton: document.querySelector("#set-goal-button"),
+  newRouteButton: document.querySelector("#new-route-button"),
 };
 
 const linePalette = [
@@ -65,6 +68,9 @@ const state = {
   startNearest: null,
   goalNearest: null,
   pointSelection: null,
+  pointSelectionTarget: null,
+  stationVisibility: "all",
+  stationMarkers: [],
   map: null,
   baseEdgeLayer: null,
   stationLayer: null,
@@ -93,6 +99,7 @@ async function init() {
     renderBaseNetwork();
     fitMapToNetwork();
     setMode("station");
+    applyStationVisibility("all");
 
     els.statusMessage.textContent = "Dữ liệu mạng đã sẵn sàng. Chọn ga hoặc click trên map.";
   } catch (error) {
@@ -228,6 +235,7 @@ function renderStationOptions(stations) {
 function renderBaseNetwork() {
   state.baseEdgeLayer.clearLayers();
   state.stationLayer.clearLayers();
+  state.stationMarkers = [];
 
   state.edges.forEach((edge) => {
     const source = state.stationByName.get(edge.source);
@@ -263,17 +271,21 @@ function renderBaseNetwork() {
   });
 
   state.stations.forEach((station) => {
-    L.circleMarker([station.lat, station.lon], {
+    const marker = L.circleMarker([station.lat, station.lon], {
       radius: 4,
       weight: 1.4,
       color: "#16303d",
       fillColor: "#fffdf7",
       fillOpacity: 0.95,
       pane: "metroStationPane",
-    })
-      .bindTooltip(station.name, { direction: "top", offset: [0, -4] })
-      .addTo(state.stationLayer);
+    });
+    marker._stationName = station.name;
+    marker.bindTooltip(station.name, { direction: "top", offset: [0, -4] });
+    marker.addTo(state.stationLayer);
+    state.stationMarkers.push(marker);
   });
+
+  applyStationVisibility(state.stationVisibility);
 }
 
 function fitMapToNetwork() {
@@ -509,11 +521,44 @@ function resetPointSelection() {
   state.startNearest = null;
   state.goalNearest = null;
   state.pointSelection = null;
-  els.startPointSummary.textContent = "Chưa có điểm bắt đầu.";
-  els.goalPointSummary.textContent = "Chưa có điểm đích.";
+  els.startPointSummary.textContent = "Chưa có điểm đi.";
+  els.goalPointSummary.textContent = "Chưa có điểm đến.";
   els.selectionSummaryCard.classList.add("hidden");
   els.selectionSummaryCard.innerHTML = "";
   renderSelectionLayer();
+  togglePointSelection(null);
+}
+
+function applyStationVisibility(mode) {
+  state.stationVisibility = mode;
+  if (mode === "hidden") {
+    state.map.removeLayer(state.stationLayer);
+  } else {
+    if (!state.map.hasLayer(state.stationLayer)) {
+      state.stationLayer.addTo(state.map);
+    }
+    state.stationMarkers.forEach((marker) => {
+      marker.unbindTooltip();
+      if (mode === "all") {
+        marker.bindTooltip(marker._stationName, { direction: "top", offset: [0, -4] });
+      }
+    });
+  }
+  document.querySelectorAll(".visibility-toggle").forEach((btn) =>
+    btn.classList.toggle("active", btn.dataset.visibility === mode),
+  );
+}
+
+function clearRouteAndSelection() {
+  state.routeLayer.clearLayers();
+  resetPointSelection();
+  els.resultsGrid.innerHTML = "";
+  els.selectionSummaryCard.classList.add("hidden");
+  els.selectionSummaryCard.innerHTML = "";
+  els.statusMessage.textContent = "Sẵn sàng tìm tuyến mới. Chọn ga hoặc click map.";
+  if (state.networkBounds?.isValid()) {
+    state.map.fitBounds(state.networkBounds.pad(0.12));
+  }
 }
 
 function addBlockedSegment() {
@@ -553,45 +598,66 @@ function clearBlockedSegments() {
   renderBaseNetwork();
 }
 
+function updateMapHint() {
+  if (state.mode !== "map") {
+    els.mapHint.textContent = "Chế độ hiện tại: chọn ga thủ công.";
+    return;
+  }
+  if (state.pointSelectionTarget === "start") {
+    els.mapHint.textContent = "Click trên map để chọn điểm đi.";
+  } else if (state.pointSelectionTarget === "goal") {
+    els.mapHint.textContent = "Click trên map để chọn điểm đến.";
+  } else {
+    els.mapHint.textContent = "Bấm 'Điểm đi' hoặc 'Điểm đến' rồi click trên map.";
+  }
+}
+
+function togglePointSelection(target) {
+  state.pointSelectionTarget = state.pointSelectionTarget === target ? null : target;
+  if (target === null) {
+    state.pointSelectionTarget = null;
+  }
+  els.setStartButton.classList.toggle("active", state.pointSelectionTarget === "start");
+  els.setGoalButton.classList.toggle("active", state.pointSelectionTarget === "goal");
+  els.networkMap.classList.toggle("selecting-point", !!state.pointSelectionTarget);
+  updateMapHint();
+}
+
 function setMode(mode) {
   state.mode = mode;
+  togglePointSelection(null);
   const stationMode = mode === "station";
   els.stationModeButton.classList.toggle("active", stationMode);
   els.mapModeButton.classList.toggle("active", !stationMode);
   els.stationModePanel.classList.toggle("hidden", !stationMode);
   els.mapModePanel.classList.toggle("hidden", stationMode);
-  els.mapHint.textContent = stationMode
-    ? "Chế độ hiện tại: chọn ga thủ công."
-    : "Click lần 1 để đặt điểm bắt đầu, click lần 2 để đặt điểm đích trên bản đồ.";
+  updateMapHint();
 }
 
 async function onMapClick(event) {
-  if (state.mode !== "map") {
+  if (state.mode !== "map" || !state.pointSelectionTarget) {
     return;
   }
 
+  const target = state.pointSelectionTarget;
   const point = {
     lat: Number(event.latlng.lat.toFixed(6)),
     lon: Number(event.latlng.lng.toFixed(6)),
   };
 
-  let target = "goal";
-  if (!state.startPoint || (state.startPoint && state.goalPoint)) {
-    target = "start";
+  if (target === "start") {
     state.startPoint = point;
-    state.goalPoint = null;
     state.startNearest = null;
-    state.goalNearest = null;
     state.pointSelection = null;
     els.startPointSummary.textContent = "Đang tìm ga gần nhất cho điểm đi...";
-    els.goalPointSummary.textContent = "Chưa có điểm đích.";
   } else {
     state.goalPoint = point;
     state.goalNearest = null;
     state.pointSelection = null;
-    els.goalPointSummary.textContent = "Đang tìm ga gần nhất cho điểm đích...";
+    els.goalPointSummary.textContent = "Đang tìm ga gần nhất cho điểm đến...";
   }
 
+  togglePointSelection(null);
   renderSelectionLayer();
 
   try {
@@ -753,5 +819,12 @@ els.clearBlockedLinesButton.addEventListener("click", clearBlockedLines);
 els.addBlockedSegmentButton.addEventListener("click", addBlockedSegment);
 els.clearBlockedSegmentsButton.addEventListener("click", clearBlockedSegments);
 els.blockedSegmentsList.addEventListener("click", onBlockedSegmentsClick);
+els.setStartButton.addEventListener("click", () => togglePointSelection("start"));
+els.setGoalButton.addEventListener("click", () => togglePointSelection("goal"));
+els.newRouteButton.addEventListener("click", clearRouteAndSelection);
+document.querySelector(".station-visibility-control").addEventListener("click", (event) => {
+  const btn = event.target.closest(".visibility-toggle");
+  if (btn) applyStationVisibility(btn.dataset.visibility);
+});
 
 init();

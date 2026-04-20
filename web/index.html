@@ -19,8 +19,8 @@
     <script defer src="/app.js"></script>
   </head>
   <body>
-    <div class="page-shell compact-shell">
-      <main class="layout compact-layout">
+    <div class="page-shell">
+      <main class="layout">
         <section class="control-panel">
           <div class="panel-title">
             <h1>Metro Thượng Hải</h1>
@@ -44,7 +44,7 @@
                   <p class="selection-caption">Ràng buộc</p>
                   <strong>Tuyến bị cấm</strong>
                 </div>
-                <button type="button" id="clear-blocked-lines-button" class="secondary compact">
+                <button type="button" id="clear-blocked-lines-button" class="secondary btn-compact">
                   Bỏ chọn
                 </button>
               </div>
@@ -57,14 +57,14 @@
                   <p class="selection-caption">Ràng buộc</p>
                   <strong>Đoạn bị cấm giữa 2 ga</strong>
                 </div>
-                <button type="button" id="clear-blocked-segments-button" class="secondary compact">
+                <button type="button" id="clear-blocked-segments-button" class="secondary btn-compact">
                   Xóa hết
                 </button>
               </div>
               <div class="blocked-segment-form">
                 <input id="blocked-segment-start" list="station-options" placeholder="Ga đầu đoạn..." />
                 <input id="blocked-segment-goal" list="station-options" placeholder="Ga cuối đoạn..." />
-                <button type="button" id="add-blocked-segment-button" class="secondary compact">Thêm đoạn</button>
+                <button type="button" id="add-blocked-segment-button" class="secondary btn-compact">Thêm đoạn</button>
               </div>
               <div id="blocked-segments-list" class="blocked-segments-list"></div>
             </div>
@@ -86,15 +86,21 @@
             </div>
 
             <div id="map-mode-panel" class="mode-panel hidden">
-              <div class="selection-card">
-                <p class="selection-caption">Bước 1</p>
-                <strong>Click trên map để chọn điểm bắt đầu.</strong>
-                <p id="start-point-summary" class="selection-summary">Chưa có điểm bắt đầu.</p>
-              </div>
-              <div class="selection-card">
-                <p class="selection-caption">Bước 2</p>
-                <strong>Click tiếp để chọn điểm đích.</strong>
-                <p id="goal-point-summary" class="selection-summary">Chưa có điểm đích.</p>
+              <div class="point-picker-row">
+                <button type="button" id="set-start-button" class="point-picker">
+                  <span class="pin-dot pin-start"></span>
+                  <div>
+                    <strong>Điểm đi</strong>
+                    <p id="start-point-summary">Chưa có điểm đi.</p>
+                  </div>
+                </button>
+                <button type="button" id="set-goal-button" class="point-picker">
+                  <span class="pin-dot pin-goal"></span>
+                  <div>
+                    <strong>Điểm đến</strong>
+                    <p id="goal-point-summary">Chưa có điểm đến.</p>
+                  </div>
+                </button>
               </div>
               <div class="button-row">
                 <button type="submit" class="primary">Tìm đường từ điểm đã chọn</button>
@@ -104,7 +110,8 @@
           </form>
 
           <div id="selection-summary-card" class="selection-summary-card hidden"></div>
-          <div id="status-message" class="status-message">Đang tải dữ liệu mạng...</div>
+          <div id="status-message" class="status-message" data-state="info">Đang tải dữ liệu mạng...</div>
+          <button type="button" id="new-route-button" class="btn-ghost-accent">Tìm tuyến mới</button>
         </section>
 
         <section class="visual-panel">
@@ -115,6 +122,11 @@
           <div class="map-shell">
             <div class="map-toolbar">
               <div class="legend" id="line-legend"></div>
+              <div class="station-visibility-control" role="group" aria-label="Hiển thị ga">
+                <button type="button" data-visibility="all" class="visibility-toggle active">Tất cả</button>
+                <button type="button" data-visibility="dots" class="visibility-toggle">Chỉ chấm</button>
+                <button type="button" data-visibility="hidden" class="visibility-toggle">Ẩn</button>
+              </div>
               <div class="map-hint" id="map-hint">Chế độ hiện tại: chọn ga thủ công.</div>
             </div>
             <div id="network-map" class="network-map"></div>
