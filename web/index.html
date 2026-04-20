@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ứng dụng chỉ đường Metro Thượng Hải</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell compact-shell">
+      <main class="layout compact-layout">
+        <section class="control-panel">
+          <div class="panel-title">
+            <h1>Metro Thượng Hải</h1>
+            <p>Chọn ga hoặc chọn điểm trên bản đồ, sau đó chạy đúng thuật toán bạn muốn.</p>
+          </div>
+
+          <form id="route-form" class="route-form">
+            <div class="mode-toggle">
+              <button type="button" id="station-mode-button" class="toggle active">Chọn ga</button>
+              <button type="button" id="map-mode-button" class="toggle">Click trên map</button>
+            </div>
+
+            <label>
+              <span>Thuật toán</span>
+              <select id="algorithm-select" required></select>
+            </label>
+
+            <div class="blocked-lines-panel">
+              <div class="blocked-lines-header">
+                <div>
+                  <p class="selection-caption">Ràng buộc</p>
+                  <strong>Tuyến bị cấm</strong>
+                </div>
+                <button type="button" id="clear-blocked-lines-button" class="secondary compact">
+                  Bỏ chọn
+                </button>
+              </div>
+              <div id="blocked-lines-list" class="blocked-lines-list"></div>
+            </div>
+
+            <div class="blocked-segments-panel">
+              <div class="blocked-lines-header">
+                <div>
+                  <p class="selection-caption">Ràng buộc</p>
+                  <strong>Đoạn bị cấm giữa 2 ga</strong>
+                </div>
+                <button type="button" id="clear-blocked-segments-button" class="secondary compact">
+                  Xóa hết
+                </button>
+              </div>
+              <div class="blocked-segment-form">
+                <input id="blocked-segment-start" list="station-options" placeholder="Ga đầu đoạn..." />
+                <input id="blocked-segment-goal" list="station-options" placeholder="Ga cuối đoạn..." />
+                <button type="button" id="add-blocked-segment-button" class="secondary compact">Thêm đoạn</button>
+              </div>
+              <div id="blocked-segments-list" class="blocked-segments-list"></div>
+            </div>
+
+            <div id="station-mode-panel" class="mode-panel">
+              <label>
+                <span>Ga đi</span>
+                <input id="start-station" list="station-options" placeholder="Nhập tên ga..." required />
+              </label>
+              <label>
+                <span>Ga đến</span>
+                <input id="goal-station" list="station-options" placeholder="Nhập tên ga..." required />
+              </label>
+              <datalist id="station-options"></datalist>
+              <div class="button-row">
+                <button type="submit" class="primary">Tìm đường</button>
+                <button type="button" id="swap-button" class="secondary">Đảo chiều</button>
+              </div>
+            </div>
+
+            <div id="map-mode-panel" class="mode-panel hidden">
+              <div class="selection-card">
+                <p class="selection-caption">Bước 1</p>
+                <strong>Click trên map để chọn điểm bắt đầu.</strong>
+                <p id="start-point-summary" class="selection-summary">Chưa có điểm bắt đầu.</p>
+              </div>
+              <div class="selection-card">
+                <p class="selection-caption">Bước 2</p>
+                <strong>Click tiếp để chọn điểm đích.</strong>
+                <p id="goal-point-summary" class="selection-summary">Chưa có điểm đích.</p>
+              </div>
+              <div class="button-row">
+                <button type="submit" class="primary">Tìm đường từ điểm đã chọn</button>
+                <button type="button" id="reset-points-button" class="secondary">Xóa điểm</button>
+              </div>
+            </div>
+          </form>
+
+          <div id="selection-summary-card" class="selection-summary-card hidden"></div>
+          <div id="status-message" class="status-message">Đang tải dữ liệu mạng...</div>
+        </section>
+
+        <section class="visual-panel">
+          <div class="panel-title">
+            <h2>Bản đồ metro tương tác</h2>
+            <p id="map-caption">Bản đồ OSM thật, chỉ tập trung quanh vùng Thượng Hải.</p>
+          </div>
+          <div class="map-shell">
+            <div class="map-toolbar">
+              <div class="legend" id="line-legend"></div>
+              <div class="map-hint" id="map-hint">Chế độ hiện tại: chọn ga thủ công.</div>
+            </div>
+            <div id="network-map" class="network-map"></div>
+          </div>
+        </section>
+
+        <section class="results-panel">
+          <div class="panel-title">
+            <h2>Kết quả thuật toán</h2>
+            <p>Chỉ hiển thị thuật toán đang được chọn.</p>
+          </div>
+          <div id="results-grid" class="results-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="result-template">
+      <article class="result-card">
+        <header class="result-header">
+          <div>
+            <p class="algorithm-name"></p>
+            <h3 class="route-title"></h3>
+          </div>
+          <span class="chip"></span>
+        </header>
+        <div class="metrics"></div>
+        <div class="path-box"></div>
+        <div class="segment-box"></div>
+      </article>
+    </template>
+  </body>
+  </html>
