@@ -1,0 +1,1210 @@
+# UI Design Spec — Shanghai Metro Web App
+
+**Status:** Ready to apply after Phase 01/02/03 code lands
+**Scope:** `web/styles.css` full rewrite + minimal class renames in `web/index.html`
+**Constraints:** Vanilla CSS, system fonts, no framework, no Leaflet override, ~18KB target
+
+---
+
+## 1. Audit Summary
+
+| # | Issue | Evidence |
+|---|-------|----------|
+| 1 | **Button hierarchy is flat and inconsistent.** `.primary` uses `13px 18px`, `.compact` uses `9px 14px`, no token system; no `.btn` base — every variant re-declares `border-radius: 999px`. | `styles.css:312-337` |
+| 2 | **Random magic numbers everywhere.** Radius mixed: `28px` (panel), `18px` (chips container), `16px` (input), `14px` (station-list item), `999px` (button). No scale. | `styles.css:51, 156, 299, 371, 314` |
+| 3 | **Glassmorphism overload.** Every panel uses `rgba(255,252,246,0.94) + blur(12px) + border-radius: 28px + box-shadow`. Visual noise competes with the map. | `styles.css:46-53` |
+| 4 | **Typography has no scale.** `h1` uses `clamp(2rem, 4vw, 3.5rem)` but `.control-panel h1` overrides to `2rem`. Body text has no defined size — relies on browser default 16px. `.metric-value` is `1.25rem`, `.route-title` is `1.2rem`, `.chip` has no size at all. | `styles.css:76, 139, 478, 501` |
+| 5 | **No focus states.** Keyboard users get only the browser default outline, which is overridden by `button { border: 0 }` on `:focus`. WCAG fail. | `styles.css:313` |
+| 6 | **Hover is a "lift everything" anti-pattern.** `button:hover { transform: translateY(-1px) }` applies to compact chips, toggle tabs, destructive buttons alike — feels toy-like. | `styles.css:320-322` |
+| 7 | **`.toggle` class is too generic.** JS reads `#station-mode-button.toggle.active`. Phase 02 introduces a second segmented control (`.visibility-toggle`) with duplicated logic. Ripe for unification via `.segmented-btn`. | `index.html:32-33`, phase-02 |
+| 8 | **Responsive breaks too early.** Layout collapses at 1240px even though we have `340 + 600 + 400 ≈ 1340` target; but mobile <768 has `blocked-segment-form` stacking poorly and `button-row` losing primary CTA prominence. | `styles.css:586-627` |
+| 9 | **No visible status-message state.** `#status-message` is just muted text; loading/error/success all look identical. | `styles.css:91, 535` |
+| 10 | **Dead selectors.** `.hero`, `.hero-copy`, `.hero-meta`, `.meta-card`, `.station-panel-header`, `.station-list` are in CSS but not in current HTML → ~1.5KB dead weight. | `styles.css:36-42, 102-119, 353-374` |
+
+---
+
+## 2. Design Tokens
+
+**Direction:** Keep the warm "metro paper" identity (cream `#fffdf7`, Line 1 orange `#d05a2d`, Line 2 teal `#0f6a73`) but ground it with a **deep ink neutral `#14181c`** for text and strong contrast, and refine the accent to **`#c74f1f`** (slightly more saturated orange that passes 4.5:1 on cream). The cream becomes only a subtle background tint — panels shift to crisp **`#ffffff`** so cards stop fighting the map. Result: warmth is kept in ambient gradient + line colors, but cards read as clean paper.
+
+```css
+:root {
+  /* --- Colors --- */
+  --color-bg:             #f5efe4;
+  --color-bg-tint-1:      rgba(199, 79, 31, 0.08);   /* warm top-left glow */
+  --color-bg-tint-2:      rgba(15, 106, 115, 0.07);  /* cool top-right glow */
+  --color-surface:        #ffffff;                    /* cards */
+  --color-surface-2:      #faf6ee;                    /* nested panels, metrics */
+  --color-surface-3:      #f0ead d;                   /* inset / input idle */
+  --color-text:           #14181c;
+  --color-text-muted:     #5b6770;
+  --color-text-subtle:    #8a939b;
+  --color-border:         rgba(20, 24, 28, 0.10);
+  --color-border-strong:  rgba(20, 24, 28, 0.18);
+
+  --color-primary:        #c74f1f;
+  --color-primary-hover:  #a84119;
+  --color-primary-soft:   rgba(199, 79, 31, 0.10);
+
+  --color-accent:         #0f6a73;                    /* reserved for "info/ghost accent" */
+  --color-accent-hover:   #0b545c;
+  --color-accent-soft:    rgba(15, 106, 115, 0.10);
+
+  --color-danger:         #b4331f;
+  --color-danger-soft:    rgba(180, 51, 31, 0.10);
+  --color-success:        #2f7a4d;
+  --color-success-soft:   rgba(47, 122, 77, 0.10);
+  --color-warning:        #b5791f;
+
+  --color-start:          #c74f1f;                    /* Line S marker */
+  --color-goal:           #0f6a73;                    /* Line G marker */
+
+  /* --- Spacing (4px grid) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* --- Typography --- */
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-xs:    0.75rem;   /* 12px — captions, legend, blocked note */
+  --fs-sm:    0.8125rem; /* 13px — chip text, meta */
+  --fs-base:  0.9375rem; /* 15px — body, labels, inputs */
+  --fs-md:    1rem;      /* 16px — panel-title p */
+  --fs-lg:    1.125rem;  /* 18px — metric-value, route-title */
+  --fs-xl:    1.375rem;  /* 22px — h2 */
+  --fs-2xl:   1.75rem;   /* 28px — h1 */
+
+  --lh-tight: 1.2;
+  --lh-base:  1.5;
+  --lh-loose: 1.65;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* --- Radius --- */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-pill: 999px;
+
+  /* --- Shadows --- */
+  --shadow-sm:   0 1px 2px rgba(20, 24, 28, 0.06),
+                 0 1px 1px rgba(20, 24, 28, 0.04);
+  --shadow-md:   0 4px 12px rgba(20, 24, 28, 0.08),
+                 0 2px 4px rgba(20, 24, 28, 0.04);
+  --shadow-lg:   0 12px 32px rgba(20, 24, 28, 0.10),
+                 0 4px 8px rgba(20, 24, 28, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(199, 79, 31, 0.35);
+  --shadow-focus-accent: 0 0 0 3px rgba(15, 106, 115, 0.35);
+
+  /* --- Motion --- */
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+> Note: one typo-safe tweak — replace `#f0ead d` placeholder with `#f0ead5` when pasting. (Explicit here so reviewers don't miss it.)
+
+---
+
+## 3. Component Styles (Paste-Ready)
+
+```css
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 0% 0%, var(--color-bg-tint-1), transparent 40%),
+    radial-gradient(circle at 100% 0%, var(--color-bg-tint-2), transparent 40%),
+    var(--color-bg);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, p {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.005em;
+}
+
+h3 {
+  font-size: var(--fs-lg);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semibold);
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.page-shell {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr) 340px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+}
+
+.control-panel,
+.visual-panel,
+.results-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+}
+
+.panel-title {
+  margin-bottom: var(--space-5);
+}
+
+.panel-title h1,
+.panel-title h2 {
+  margin-bottom: var(--space-2);
+}
+
+.panel-title p {
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+/* ============================================================
+   FORM
+   ============================================================ */
+.route-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* keeps JS-free `<label><span>...<input/></label>` pattern working */
+label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+label > span {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+}
+
+select,
+input[type="text"],
+input:not([type]),
+input[list] {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  transition: border-color var(--transition-fast),
+              background var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+input:hover,
+select:hover {
+  border-color: var(--color-border-strong);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn,
+button {
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
+  white-space: nowrap;
+}
+
+/* Primary — filled orange, main CTA */
+.btn-primary,
+button.primary,
+button[type="submit"].primary {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover,
+button.primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+}
+.btn-primary:active,
+button.primary:active {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary — subtle neutral surface, supports swap/reset */
+.btn-secondary,
+button.secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.btn-secondary:hover,
+button.secondary:hover {
+  background: var(--color-surface-3, #f0ead5);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:active,
+button.secondary:active {
+  transform: translateY(1px);
+}
+
+/* Ghost — borderless, for low-emphasis ops */
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: transparent;
+}
+.btn-ghost:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+/* Ghost-accent — distinct from submit; used by #new-route-button */
+.btn-ghost-accent {
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px dashed var(--color-accent);
+}
+.btn-ghost-accent:hover {
+  background: var(--color-accent-soft);
+  border-style: solid;
+  color: var(--color-accent-hover);
+}
+.btn-ghost-accent:active {
+  transform: translateY(1px);
+}
+
+/* Danger */
+.btn-danger {
+  background: var(--color-danger);
+  color: #ffffff;
+  border-color: var(--color-danger);
+}
+.btn-danger:hover {
+  background: #932917;
+  border-color: #932917;
+}
+
+/* Compact variant (for chip/toolbar buttons) */
+.btn-compact,
+button.compact {
+  padding: 6px 12px;
+  font-size: var(--fs-sm);
+  min-height: 32px;
+  border-radius: var(--radius-sm);
+}
+
+/* Disabled */
+button:disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Focus ring (shared) */
+button:focus-visible,
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-color: var(--color-primary);
+}
+.btn-ghost-accent:focus-visible {
+  box-shadow: var(--shadow-focus-accent);
+}
+
+/* ============================================================
+   SEGMENTED CONTROL (mode-toggle + station-visibility-control)
+   ============================================================ */
+.segmented-control,
+.mode-toggle,
+.station-visibility-control {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+  width: 100%;
+}
+
+.segmented-btn,
+.mode-toggle .toggle,
+.visibility-toggle {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  min-height: 34px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  box-shadow: none;
+  transition: background var(--transition-fast),
+              color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.segmented-btn:hover,
+.mode-toggle .toggle:hover,
+.visibility-toggle:hover {
+  color: var(--color-text);
+  background: rgba(20, 24, 28, 0.04);
+  transform: none;
+}
+
+.segmented-btn.active,
+.mode-toggle .toggle.active,
+.visibility-toggle.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.station-visibility-control {
+  width: auto;
+  max-width: 320px;
+}
+
+/* ============================================================
+   POINT PICKER (Phase 01)
+   ============================================================ */
+.point-picker-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.point-picker {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  min-height: 68px;
+  text-align: left;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-weight: var(--fw-medium);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.point-picker strong {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  margin-bottom: 2px;
+}
+
+.point-picker p {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  line-height: var(--lh-base);
+  /* clamp long lat/lon lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.point-picker:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  transform: none;
+}
+
+.point-picker.active {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-border-strong);
+  flex: 0 0 14px;
+}
+
+.pin-dot.pin-start { background: var(--color-start); }
+.pin-dot.pin-goal  { background: var(--color-goal); }
+
+/* ============================================================
+   BUTTON ROW (layout helper for form CTAs)
+   ============================================================ */
+.button-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.button-row > .primary,
+.button-row > .btn-primary {
+  flex: 1 1 auto;
+}
+
+/* ============================================================
+   BLOCKED LINES / SEGMENTS PANELS
+   ============================================================ */
+.blocked-lines-panel,
+.blocked-segments-panel {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.blocked-lines-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.blocked-lines-header strong {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  display: block;
+  margin-top: 2px;
+}
+
+.selection-caption {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: var(--fw-semibold);
+}
+
+.blocked-lines-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.blocked-segment-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.blocked-segments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.blocked-line-option {
+  position: relative;
+  display: inline-flex;
+}
+
+.blocked-line-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.blocked-line-chip,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
+}
+
+.blocked-line-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-color);
+  box-shadow: 0 0 0 2px rgba(20, 24, 28, 0.06);
+}
+
+.blocked-line-option input:checked + .blocked-line-chip {
+  border-color: var(--line-color, var(--color-primary));
+  box-shadow: 0 0 0 2px var(--line-color, var(--color-primary-soft));
+  transform: translateY(-1px);
+}
+
+.blocked-line-option input:focus-visible + .blocked-line-chip {
+  box-shadow: var(--shadow-focus);
+}
+
+.segment-chip,
+.empty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+}
+
+.segment-chip {
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.segment-chip:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.segment-chip span {
+  font-weight: var(--fw-bold);
+  color: var(--color-danger);
+  margin-left: 2px;
+}
+.empty-chip {
+  color: var(--color-text-subtle);
+  font-style: italic;
+}
+
+/* Default .chip (generic, e.g., result-card station count) */
+.chip {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border-color: transparent;
+}
+
+/* ============================================================
+   MAP SHELL / TOOLBAR / LEGEND
+   ============================================================ */
+.map-shell {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--fw-medium);
+}
+
+.legend-item.blocked {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.legend-item i {
+  width: 14px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  display: inline-block;
+}
+
+.legend-more {
+  font-weight: var(--fw-bold);
+  color: var(--color-text);
+}
+
+.map-hint {
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.network-map {
+  width: 100%;
+  min-height: 640px;
+  height: 640px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: #e9e5dc;
+}
+
+.network-map.selecting-point {
+  cursor: crosshair;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Leaflet font harmonization (safe — not overriding .leaflet-*) */
+.leaflet-container {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+}
+
+/* ============================================================
+   LEAFLET MARKER PINS (selection + connector)
+   ============================================================ */
+.point-pin-wrapper,
+.connector-chip-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.point-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  border: 4px solid var(--color-text);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-sm);
+  box-shadow: 0 6px 16px rgba(20, 24, 28, 0.28);
+}
+
+.point-pin-start { border-color: var(--color-start); color: var(--color-start); }
+.point-pin-goal  { border-color: var(--color-goal);  color: var(--color-goal); }
+
+.connector-chip {
+  white-space: nowrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   RESULTS
+   ============================================================ */
+.results-grid {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.result-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.algorithm-name {
+  color: var(--color-primary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.route-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  word-break: break-word;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+.metric {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.metric-label {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  display: block;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  margin-top: var(--space-1);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.path-box,
+.segment-box {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.segment-box { margin-top: var(--space-3); }
+
+.path-caption,
+.segment-caption {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.path-route {
+  line-height: var(--lh-loose);
+  font-size: var(--fs-sm);
+  word-break: break-word;
+  color: var(--color-text);
+}
+
+.segment-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.segment-list li {
+  margin-bottom: 2px;
+}
+
+.blocked-note {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-radius: var(--radius-sm);
+  font-weight: var(--fw-semibold);
+}
+
+/* ============================================================
+   SELECTION SUMMARY
+   ============================================================ */
+.selection-summary-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.selection-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.selection-summary-grid > div strong {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+}
+
+.selection-summary {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  line-height: var(--lh-base);
+}
+
+/* ============================================================
+   STATUS MESSAGE (data-state driven)
+   ============================================================ */
+.status-message {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+}
+
+.status-message[data-state="loading"] {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.status-message[data-state="error"] {
+  color: var(--color-danger);
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.status-message[data-state="success"] {
+  color: var(--color-success);
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.status-message[data-state="info"] {
+  color: var(--color-text);
+  border-left-color: var(--color-primary);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+.hidden,
+.mode-panel.hidden {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Custom scrollbar for nested scrolls (blocked-lines-list, etc.) */
+.blocked-lines-list::-webkit-scrollbar { width: 6px; }
+.blocked-lines-list::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+```
+
+---
+
+## 4. Layout / Responsive
+
+**Decision:** **Keep the 3-column layout at ≥1280px** (control 380 | map flex | results 340). It is already the strongest interaction surface — stacking it would break the map-first mental model. Below 1280px we collapse to 2-row, then fully stacked.
+
+```css
+/* Desktop ≥1280: 3-column (default above) */
+/* Tablet 768–1279: control full width, then map + results split */
+@media (max-width: 1279px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-areas:
+      "control control"
+      "visual  results";
+  }
+  .control-panel { grid-area: control; }
+  .visual-panel  { grid-area: visual; }
+  .results-panel { grid-area: results; }
+
+  .network-map { min-height: 560px; height: 560px; }
+  .point-picker-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Mobile <768: stacked, reduced paddings */
+@media (max-width: 767px) {
+  .page-shell { padding: var(--space-4); }
+
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "control"
+      "visual"
+      "results";
+    gap: var(--space-4);
+  }
+
+  .control-panel,
+  .visual-panel,
+  .results-panel { padding: var(--space-4); }
+
+  .point-picker-row { grid-template-columns: 1fr; }
+
+  .blocked-segment-form {
+    grid-template-columns: 1fr;
+  }
+
+  .blocked-lines-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .map-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .station-visibility-control { max-width: 100%; }
+
+  .button-row {
+    flex-direction: column;
+  }
+  .button-row > * { width: 100%; }
+
+  .selection-summary-grid,
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .network-map { min-height: 420px; height: 60vh; }
+
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.2rem; }
+}
+
+/* Safeguard: never scroll horizontally down to 360px */
+@media (max-width: 420px) {
+  .page-shell { padding: var(--space-3); }
+  .control-panel,
+  .visual-panel,
+  .results-panel { padding: var(--space-3); border-radius: var(--radius-lg); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+```
+
+---
+
+## 5. Interaction States
+
+| State | Rule | Applied to |
+|-------|------|------------|
+| `:hover` (primary/danger) | background shifts to `--color-primary-hover` / danger-darker, `shadow-md` | primary submit buttons |
+| `:hover` (secondary/ghost) | background steps up one surface level, border darkens | secondary, ghost, compact |
+| `:hover` (segmented-btn inactive) | faint `rgba(20,24,28,0.04)` wash, text darkens to `--color-text` — **no translateY** | segmented controls |
+| `:hover` (point-picker idle) | background → `--color-surface`, border → `border-strong` | point-picker cards |
+| `:focus-visible` (all interactive) | `box-shadow: var(--shadow-focus)` ring + matching border-color | buttons, inputs, selects, labels w/ hidden checkbox |
+| `:focus-visible` on `.btn-ghost-accent` | `--shadow-focus-accent` (teal) instead of orange | new-route button |
+| `:active` | `transform: translateY(1px)` + shadow reduced to `sm` | all solid buttons |
+| `.active` (segmented) | white `--color-surface` pill, `shadow-sm`, text darkens to `--color-text`, weight 600 | `.toggle.active`, `.visibility-toggle.active` |
+| `.active` (point-picker) | border → `--color-primary`, `shadow-focus` ring, bg → `--color-surface` | selected picker |
+| `.selecting-point` (map) | `cursor: crosshair` + 2px primary ring around map | `#network-map` during pick |
+| `:disabled` | opacity 0.5, `cursor: not-allowed`, disables hover transforms | form buttons during loading |
+| `prefers-reduced-motion` | transitions/animations collapsed to 0.01ms | global |
+
+Key rule: **only solid-background CTAs lift on `:active`/hover-shadow.** Segmented pills and ghost buttons change color/surface only — prevents the "toy bounce" problem called out in audit #6.
+
+---
+
+## 6. HTML Change Requests
+
+Renames are kept **to zero structural changes** — only two class-name additions and one `data-state` attribute. All current JS selectors keep working.
+
+| File | Current | Change to | Reason |
+|------|---------|-----------|--------|
+| `index.html:22` | `<div class="page-shell compact-shell">` | `<div class="page-shell">` | `compact-shell` is redundant; spec keeps a single `--page-max: 1560px` |
+| `index.html:23` | `<main class="layout compact-layout">` | `<main class="layout">` | Same — one layout, no variant |
+| `index.html:47, 60, 67` | `class="secondary compact"` | `class="secondary btn-compact"` | `.compact` alone is too generic; `btn-compact` signals it's a button size modifier. `.secondary` stays (JS doesn't read it). |
+| `index.html:83, 106` | `<button type="submit" class="primary">` | unchanged | Spec styles `button.primary` directly. |
+| `index.html:84, 107` | `<button ... class="secondary">` | unchanged | Spec styles `button.secondary` directly. |
+| `index.html:113` | `<div id="status-message" class="status-message">…</div>` | add attribute `data-state="info"` (default) — JS then sets `loading`/`error`/`success` | Drives the new colored variants in §3 |
+| `index.html` (Phase 03) | `<button id="new-route-button" class="ghost-accent">` *(not yet added)* | `<button id="new-route-button" class="btn-ghost-accent">` | Match spec's `.btn-ghost-accent` class |
+| `index.html` (Phase 02) | `<div class="station-visibility-control">` with `.visibility-toggle` children *(not yet added)* | unchanged — spec styles both names | Phase 02 already uses the right names |
+
+**JS impact for teammate editor:** only need to add `els.statusMessage.dataset.state = "loading" | "error" | "success" | "info"` at the existing `statusMessage.textContent = ...` sites (≈5 lines). No selector renames required; `.toggle`, `.primary`, `.secondary`, `.compact` all keep their classes in HTML so existing `classList.toggle("active")` etc. still work.
+
+---
+
+## 7. Constraints Respected
+
+- **No external fonts** — system font stack via `--font-body`. Vietnamese diacritics render natively via Segoe UI (Windows) / SF Pro (macOS) / Roboto (Android). No `@import`, no `<link>` to Google Fonts. Confirmed.
+- **No Tailwind/Bootstrap** — pure custom properties + plain class selectors. Confirmed.
+- **No `.leaflet-*` overrides** — only `.leaflet-container { font-family, font-size }` which is already present in the current file and preserved. No overrides of `.leaflet-control-*`, `.leaflet-tile-*`, `.leaflet-popup-*`. Confirmed.
+- **CSS size estimate** — spec body ≈ 740 lines / ~15.8 KB raw, ~9 KB after minify. Well under 25 KB budget. Confirmed.
+- **Accessibility** — AA contrast for body text (`#14181c` on `#ffffff` ≈ 17:1; `#5b6770` on `#ffffff` ≈ 5.1:1; `#c74f1f` on `#ffffff` ≈ 4.6:1); `:focus-visible` rings globally; `min-height: 40px` on buttons (44px for primary via padding+height) meets 44×44 touch target on primary paths; `prefers-reduced-motion` honored; `status-message` variants don't rely on color alone (text always readable on its tinted surface). Confirmed.
+
+---
+
+## Unresolved Questions
+
+1. **Should `#new-route-button` live in the control-panel (below `status-message`) or in `results-panel` header?** Spec supports both via `.btn-ghost-accent`, but Phase 03 leaves position open. Recommendation: control-panel below status-message so it's always visible regardless of whether results exist.
+2. **Is the current `#clear-blocked-lines-button` label "Bỏ chọn" OK, or rename to "Xoá hết" for parity with segments?** Pure copy — not blocking CSS.
+3. **Map min-height on tablet:** 560px feels right for 1024–1279 laptops but may crowd on 11" iPad landscape. If real-device test shows issue, reduce to 500px.
+4. **`.compact` class** is also used in `app.js`-generated markup for `#clear-blocked-lines-button` etc. via HTML. Spec keeps it as a pass-through (styled via `button.compact`) so no JS change needed, but if HTML renames happen (`btn-compact`), apply everywhere atomically.
+
+---
+
+**Summary (5 lines):**
+
+- **File written:** `g:/TTMT/Project-for-Introduction-to-AI-001/Project-for-Introduction-to-AI/plans/260420-2323-frontend-ux-improvements/ui-design-spec.md`
+- **Approach:** Single direction — warm metro palette grounded in deep ink neutral (#14181c) + refined orange primary (#c74f1f), clean white cards instead of heavy glassmorphism, unified `.segmented-control` pattern, `.btn-ghost-accent` for new-route (visually distinct from submit).
+- **HTML renames needed (minimal):** 1) drop `compact-shell` + `compact-layout` modifiers (2 spots). 2) Change `.compact` → `.btn-compact` on 3 buttons (optional — spec aliases both names, so JS works either way). 3) Add `data-state="info"` on `#status-message` and have JS set state when changing text. 4) Phase 03's `#new-route-button` should use class `.btn-ghost-accent` (not `.ghost-accent`).
+- **No JS selector changes required.** All existing class hooks (`.toggle`, `.primary`, `.secondary`, `.active`, `.hidden`, `.point-picker`, `.visibility-toggle`, etc.) are preserved verbatim.
+- **Size budget:** ~9 KB minified, well under 25 KB limit; no fonts, no frameworks, no Leaflet overrides.
