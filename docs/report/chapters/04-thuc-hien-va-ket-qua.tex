@@ -114,8 +114,8 @@ def greedy_best_first_search(
     start: str,
     goal: str,
 ) -> SearchResult:
-    # Dùng heuristic h(n) làm priority
-    # Early-exit khi pop goal từ queue
+    # Use heuristic h(n) as priority
+    # Early-exit when goal is popped from queue
     pass
 \end{lstlisting}
 
@@ -128,8 +128,8 @@ def a_star_search(
     start: str,
     goal: str,
 ) -> SearchResult:
-    # Dùng f(n) = g(n) + h(n) làm priority
-    # g(n) = chi phí từ start, h(n) = heuristic
+    # Use f(n) = g(n) + h(n) as priority
+    # g(n) = cost from start, h(n) = heuristic estimate to goal
     pass
 \end{lstlisting}
 
@@ -297,7 +297,7 @@ Hạn chế:
 \begin{itemize}
   \item ARIA labels trên button (aria-pressed, aria-expanded, aria-controls).
   \item Focus ring rõ ràng (focus-visible, custom --shadow-focus).
-  \item Contrast AA trên body text (#14181c trên #ffffff ~ 17:1).
+  \item Contrast AA trên body text (\#14181c trên \#ffffff $\sim$ 17:1).
   \item prefers-reduced-motion support.
   \item Semantic HTML (button, form, role="dialog" trên popover).
 \end{itemize}
