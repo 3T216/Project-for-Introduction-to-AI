@@ -9,6 +9,15 @@
 \usepackage[T5]{fontenc}          % T5 encoding = Vietnamese glyphs
 \usepackage[vietnamese]{babel}    % Hyphenation + headings Vietnamese
 
+% Tắt shorthand " của babel-vietnamese để tránh vỡ hyperref
+\AtBeginDocument{\shorthandoff{"}}
+
+% Map Unicode checkmarks (✓ ✗) — dùng trong bảng so sánh thuật toán
+\usepackage{newunicodechar}
+\newunicodechar{✓}{$\checkmark$}
+\newunicodechar{✗}{$\times$}
+\newunicodechar{⚡}{$\star$}
+
 % ===== FONT =====
 % Times New Roman clone (cài sẵn trong mọi MiKTeX / TeX Live Basic)
 \usepackage{mathptmx}             % Times cho body + math

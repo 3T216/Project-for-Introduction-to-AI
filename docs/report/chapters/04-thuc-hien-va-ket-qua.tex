@@ -177,7 +177,7 @@ Bộ test gồm 29 test case:
 \subsection{Integration Tests (HTTP server tests)}
 
 \begin{itemize}
-  \item \textbf{4 endpoints × (happy path + malformed input):} Test `/api/network`, `/api/routes`, `/api/nearest-station`, `/api/routes-by-points`.
+  \item \textbf{4 endpoints × (happy path + malformed input):} Test \texttt{/api/network}, \texttt{/api/routes}, \texttt{/api/nearest-station}, \texttt{/api/routes-by-points}.
   \item \textbf{10 tests HTTP:} Gồm status code 200, 400, content-type JSON.
 \end{itemize}
 
@@ -257,7 +257,7 @@ Chạy benchmark trên một cặp điểm: **Hongqiao Railway Station → Centu
 Hạn chế:
 \begin{itemize}
   \item Dropdown rất dài (411 item), người dùng phải scroll, có thể khó sử dụng trên mobile.
-  \item Một số ga tên chỉ là số (ví dụ "1", "2") do data OSM thiếu tag `name`.
+  \item Một số ga tên chỉ là số (ví dụ \textquotedbl 1\textquotedbl, \textquotedbl 2\textquotedbl) do data OSM thiếu tag \texttt{name}.
 \end{itemize}
 
 \subsection{Chế độ click map}

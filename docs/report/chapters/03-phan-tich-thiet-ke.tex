@@ -75,12 +75,12 @@
 - \textbf{Công nghệ:} Python, HTTP server (stdlib).
 - \textbf{Module chính:}
   \begin{itemize}
-    \item \textbf{service.py}: Các hàm higher-level như `find_routes()`, `find_nearest_station()`, filter graph.
+    \item \textbf{service.py}: Các hàm higher-level như \texttt{find\_routes()}, \texttt{find\_nearest\_station()}, filter graph.
     \item \textbf{algorithms.py}: Cài đặt 4 thuật toán (UCS, Greedy, A*, Dijkstra).
     \item \textbf{geo.py}: Tính toán Haversine distance.
     \item \textbf{server.py}: HTTP routing, request/response parsing.
   \end{itemize}
-- \textbf{Endpoints API:} `/api/network`, `/api/routes`, `/api/nearest-station`, `/api/routes-by-points`.
+- \textbf{Endpoints API:} \texttt{/api/network}, \texttt{/api/routes}, \texttt{/api/nearest-station}, \texttt{/api/routes-by-points}.
 
 \subsection{Tầng Data}
 
@@ -91,7 +91,7 @@
     \item \textbf{Edge:} source, target, line, travel\_time, distance\_km.
     \item \textbf{Graph:} Biểu diễn danh sách kề.
   \end{itemize}
-- \textbf{Nguồn:} OpenStreetMap (file `data/shanghai_metro_osm.json`, 206 KB).
+- \textbf{Nguồn:} OpenStreetMap (file \texttt{data/shanghai\_metro\_osm.json}, 206 KB).
 
 \section{Mô hình dữ liệu}
 
@@ -112,9 +112,9 @@ class Edge:
     distance_km: float
 \end{lstlisting}
 
-Đồ thị được lưu: `graph: dict[str, list[Edge]]`
+Đồ thị được lưu: \texttt{graph: dict[str, list[Edge]]}
 
-Ví dụ: `graph["Hongqiao Railway Station"] = [Edge("Songhong Road", 6.0, "Line 2", 4.8), ...]`
+Ví dụ: \texttt{graph[\textquotedbl Hongqiao Railway Station\textquotedbl] = [Edge(\textquotedbl Songhong Road\textquotedbl, 6.0, \textquotedbl Line 2\textquotedbl, 4.8), ...]}
 
 \section{Luồng xử lý request tìm đường}
 
@@ -135,12 +135,12 @@ Luồng chi tiết:
 \begin{enumerate}
   \item Người dùng click button "Tìm đường" trên UI.
   \item JavaScript xây dựng request object (start, goal, algorithm, blocked\_lines, blocked\_segments).
-  \item Gửi HTTP GET request tới `/api/routes-by-points` hoặc `/api/routes`.
+  \item Gửi HTTP GET request tới \texttt{/api/routes-by-points} hoặc \texttt{/api/routes}.
   \item Server.py nhận request, parse parameters.
-  \item Gọi `service.find_routes()` với các tham số.
+  \item Gọi \texttt{service.find\_routes()} với các tham số.
   \item Service tạo graph đã lọc (loại bỏ tuyến/đoạn bị cấm).
   \item Service gọi hàm thuật toán tương ứng (UCS/Greedy/A*/Dijkstra).
-  \item Thuật toán trả lại `SearchResult` (path, cost, explored\_count, line\_sequence, distance).
+  \item Thuật toán trả lại \texttt{SearchResult} (path, cost, explored\_count, line\_sequence, distance).
   \item Service format JSON response.
   \item Server trả lại HTTP 200 + JSON body.
   \item JavaScript parse response, vẽ polyline, hiển thị kết quả.
