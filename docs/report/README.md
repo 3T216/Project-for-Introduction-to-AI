@@ -31,25 +31,25 @@ sudo apt-get install texlive-xetex texlive-fonts-recommended texlive-latex-extra
 
 ### Yêu cầu các component
 
-- **XeLaTeX:** Engine để compile (bao gồm trong TeX Live)
-- **Biber:** Bibliography backend (bao gồm trong TeX Live 2019+)
-- **Fonts:** Times New Roman hoặc Liberation Serif (fallback)
+- **pdfLaTeX:** Engine mặc định của TeX Live / MiKTeX (không cần cài thêm)
+- **Biber:** Bibliography backend (đi kèm TeX Live / MiKTeX)
+- **vntex / babel-vietnamese:** Cho chữ tiếng Việt (thường đã cài sẵn)
 
 ## Compile
 
 Từ thư mục `docs/report/`:
 
 ```bash
-xelatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode main.tex
 biber main
-xelatex main.tex
-xelatex main.tex
+pdflatex main.tex
+pdflatex main.tex
 ```
 
 Hoặc một lệnh:
 
 ```bash
-xelatex -interaction=nonstopmode main.tex && biber main && xelatex main.tex && xelatex main.tex
+pdflatex -interaction=nonstopmode main.tex && biber main && pdflatex main.tex && pdflatex main.tex
 ```
 
 **Output:** `main.pdf`
@@ -136,22 +136,18 @@ Nếu không cài TeX Live cục bộ:
 2. Vào https://www.overleaf.com
 3. Click "New Project" → "Upload Project"
 4. Chọn file zip
-5. **Menu (≡ góc trái trên) → Settings → Compiler → đổi thành `XeLaTeX`** ⚠️ BẮT BUỘC
+5. Compiler mặc định là **pdfLaTeX** — đúng, không cần đổi
 6. Bấm "Recompile"
-
-> **Nếu "No PDF" / lỗi compile:** 99% do quên bước 5 (Overleaf mặc định `pdfLaTeX`, không chạy được `fontspec`/`polyglossia`). Xem tab "Logs and output files" để confirm lỗi nếu đã set XeLaTeX mà vẫn lỗi.
 
 ## Troubleshooting
 
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-----------|---------|
-| **No PDF trên Overleaf** | Compiler đang là pdfLaTeX | Menu → Settings → Compiler → **XeLaTeX**, rồi Recompile |
-| `fontspec error: font not found "times"` | Font Times New Roman không cài | Đã dùng `TeX Gyre Termes` (clone của Times, luôn có). Nếu vẫn lỗi đổi sang `Liberation Serif` |
-| `Undefined control sequence \setdefaultlanguage` | Polyglossia không cài | `tlmgr install polyglossia` |
-| `biber not found` | Biber chưa cài hoặc không trong PATH | `tlmgr install biber` hoặc thêm bin path vào PATH |
-| `vietnamese language not available` | Polyglossia outdated | `tlmgr update --self --all` |
-| PDF hiển thị ký tự lạ (?) | Font encoding sai | Dùng XeLaTeX (không pdfLaTeX), verify `preamble.tex` có `\usepackage{fontspec}` + `\usepackage{polyglossia}` |
-| Lỗi `package babel error` | Chỉ dùng XeLaTeX khi sử dụng `polyglossia` | Compile với `xelatex`, không `pdflatex` |
+| `Package babel Error: Unknown language vietnamese` | vntex/babel-vietnamese chưa cài | MiKTeX Console → Packages → install `vntex` hoặc `babel-vietnamese` |
+| `T5 encoding not found` | Thiếu `vntex` fontenc | MiKTeX Console → install `vntex` |
+| `biber not found` | Biber chưa cài hoặc không trong PATH | Cài `biber` package, hoặc thêm bin path |
+| PDF hiển thị ô vuông ở chữ Việt | Font/encoding mismatch | Đảm bảo `\usepackage[utf8]{inputenc}` + `\usepackage[T5]{fontenc}` + `\usepackage[vietnamese]{babel}` |
+| Lỗi `Unknown option utf8` với inputenc | inputenc version cũ | TeX Live >= 2018 mặc định đã đúng; nếu MiKTeX cũ → update |
 | Blank page sau trang bìa | `\cleardoublepage` có thể tạo page thừa | Xoá hoặc comment lại dòng trong `titlepage.tex` |
 | Code listing line overlap | Margin code listing sai | Sửa `xleftmargin` từ 15pt → 25pt trong `preamble.tex` |
 
