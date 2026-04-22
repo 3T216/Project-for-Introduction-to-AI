@@ -1,0 +1,121 @@
+% ===== MAIN.TEX =====
+% Entry point cho báo cáo LaTeX
+% Compile: xelatex main.tex && biber main && xelatex main.tex && xelatex main.tex
+
+\input{preamble}
+
+\begin{document}
+
+\input{titlepage}
+
+% ===== FRONT MATTER =====
+\frontmatter
+
+\tableofcontents
+\cleardoublepage
+
+\listoffigures
+\cleardoublepage
+
+\listoftables
+\cleardoublepage
+
+% ===== LỜI CAM ĐOAN =====
+\chapter*{Lời Cam Đoan}
+
+Em xin cam đoan rằng báo cáo này là kết quả công việc nghiên cứu độc lập của em, dựa trên kiến thức được học tập từ các bài giảng và tài liệu tham khảo. Toàn bộ nội dung báo cáo đều là sáng tạo của em, không trùng lặp hay sao chép từ các công trình khác mà không dẫn chiếu.
+
+Các điểm được trích dẫn từ công trình của người khác đều có ghi rõ nguồn tài liệu.
+
+\vspace{2cm}
+
+Hà Nội, \today
+
+\hspace{3cm} Sinh viên
+
+\vspace{2cm}
+
+\hspace{3cm} \svname
+
+\cleardoublepage
+
+% ===== LỜI CẢM ƠN =====
+\chapter*{Lời Cảm Ơn}
+
+Tác giả xin cảm ơn \gvname{}, giáo viên hướng dẫn, vì những lời khuyên quý báu, sự hỗ trợ tận tình trong quá trình thực hiện bài tập lớn này.
+
+Cảm ơn các giáo viên khác trong phòng Công Nghệ Thông Tin đã cung cấp tài liệu tham khảo và môi trường học tập tốt.
+
+Cảm ơn các bạn cùng lớp đã trao đổi ý kiến, giúp đỡ em hoàn thiện công trình.
+
+\cleardoublepage
+
+% ===== TÓM TẮT =====
+\chapter*{Tóm Tắt}
+
+Báo cáo này trình bày một ứng dụng web chỉ đường trên mạng lưới tàu điện ngầm Thượng Hải, sử dụng bốn thuật toán tìm kiếm đường ngắn nhất cổ điển: Uniform Cost Search (UCS), Greedy Best-First Search, A* Search, và Dijkstra.
+
+Báo cáo gồm 5 chương chính:
+
+\begin{enumerate}
+  \item \textbf{Mở đầu}: Nêu lý do chọn đề tài, mục tiêu nghiên cứu, phạm vi và phương pháp thực hiện.
+  \item \textbf{Cơ sở lý thuyết}: Trình bày chi tiết bốn thuật toán pathfinding, hàm heuristic admissible, và so sánh lý thuyết các thuật toán.
+  \item \textbf{Phân tích và thiết kế}: Phân tích yêu cầu, kiến trúc hệ thống 3-tầng, mô hình dữ liệu, thiết kế API và giao diện người dùng.
+  \item \textbf{Thực hiện và kết quả}: Mô tả công nghệ sử dụng, cấu trúc mã nguồn, code listings các thuật toán, kết quả kiểm thử và benchmark so sánh.
+  \item \textbf{Kết luận}: Tóm tắt những gì đạt được, hạn chế hiện tại, và hướng phát triển tương lai.
+\end{enumerate}
+
+Ứng dụng được xây dựng bằng Python (backend) và JavaScript (frontend), sử dụng dữ liệu thật từ OpenStreetMap (411 ga, 20 tuyến). Bộ test bao gồm 29 test case (unit + integration), đạt tỉ lệ coverage cao. Kết quả benchmark cho thấy A* là nhanh nhất (64 node explored), Greedy nhanh nhất về số node (15 node), và UCS, Dijkstra đều tối ưu nhưng Dijkstra tính toàn bộ SSSP nên explored nhiều node hơn.
+
+Từ khóa: Pathfinding, Graph algorithms, A*, Dijkstra, Shanghai Metro, Web application.
+
+\cleardoublepage
+
+% ===== MAIN MATTER =====
+\mainmatter
+
+\include{chapters/01-mo-dau}
+\include{chapters/02-co-so-ly-thuyet}
+\include{chapters/03-phan-tich-thiet-ke}
+\include{chapters/04-thuc-hien-va-ket-qua}
+\include{chapters/05-ket-luan}
+
+% ===== BIBLIOGRAPHY =====
+\cleardoublepage
+\printbibliography[title=Tài liệu tham khảo]
+
+% ===== APPENDIX =====
+\appendix
+
+\chapter{Hướng dẫn Cài đặt và Chạy}
+
+\section{Yêu cầu Hệ thống}
+
+\begin{itemize}
+  \item Python 3.10+
+  \item Trình duyệt hiện đại (Chrome, Firefox, Safari, Edge)
+  \item Kết nối Internet (cho OpenStreetMap tiles)
+  \item Không cần cài đặt thêm package --- chỉ dùng Python stdlib
+\end{itemize}
+
+\section{Hướng dẫn Chạy}
+
+Để khởi động ứng dụng:
+
+\begin{lstlisting}[language=bash, caption=Khởi động ứng dụng]
+git clone https://github.com/3T216/Project-for-Introduction-to-AI
+cd Project-for-Introduction-to-AI
+python app.py
+\end{lstlisting}
+
+Sau đó mở trình duyệt tại: \url{http://127.0.0.1:8000}
+
+\section{Chạy Kiểm Thử}
+
+\begin{lstlisting}[language=bash, caption=Chạy bộ test]
+python -m unittest discover -s tests -v
+\end{lstlisting}
+
+Điều này sẽ chạy 29 test case (14 tests thuật toán + 3 correctness + 2 Dijkstra + 10 HTTP).
+
+\end{document}

@@ -1,0 +1,137 @@
+% ====== PREAMBLE.TEX ======
+% XeLaTeX preamble cho báo cáo HUST BTL/Đồ Án
+% Compile: xelatex -interaction=nonstopmode main.tex && biber main && xelatex main.tex
+
+\documentclass[12pt,a4paper,oneside]{book}
+
+% ===== FONT & LANGUAGE =====
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+\setotherlanguage{english}
+\usepackage{lmodern}
+
+% Thiết lập font chính (Times New Roman 12pt)
+% Nếu không có TNR, thay vào Liberation Serif hoặc TeX Gyre Termes
+\setmainfont[
+  Extension = .ttf,
+  BoldFont = *b,
+  ItalicFont = *i,
+  BoldItalicFont = *bi
+]{times}
+% Fallback (uncomment nếu không có file font local):
+% \setmainfont{Times New Roman}[SizeFeatures={Size=12}]
+
+\setsansfont{DejaVu Sans}
+\setmonofont{DejaVu Sans Mono}
+
+% ===== PAGE LAYOUT =====
+\usepackage[
+  a4paper,
+  margin=2.5cm,
+  top=2.5cm,
+  bottom=2.0cm,
+  left=2.5cm,
+  right=2.5cm,
+  headheight=14pt,
+  includehead,
+  includefoot
+]{geometry}
+
+\usepackage{setspace}
+\onehalfspacing % Dãn dòng 1.5
+
+% ===== GRAPHICS & TABLES =====
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{colortbl}
+
+% ===== COLOR & LINKS =====
+\usepackage{xcolor}
+\usepackage[
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=red,
+  pdfstartview=FitH,
+  pdftitle={BTL/Đồ Án AI},
+  pdfauthor={HUST Student}
+]{hyperref}
+
+% ===== CODE LISTINGS =====
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  framerule=0.5pt,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=15pt,
+  framexleftmargin=10pt,
+  captionpos=b,
+  belowcaptionskip=8pt
+}
+
+\lstdefinelanguage{Python}{
+  morekeywords={def,class,import,from,return,if,else,elif,for,while,try,except,finally,with,as,lambda,yield,pass,break,continue,raise},
+  sensitive=true,
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+% ===== SECTION HEADING STYLE =====
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {Chương \thechapter}
+  {20pt}
+  {\Huge}
+\titlespacing*{\chapter}{0pt}{-30pt}{20pt}
+
+\titleformat{\section}[hang]
+  {\normalfont\Large\bfseries}
+  {\thesection}{12pt}{}
+\titleformat{\subsection}[hang]
+  {\normalfont\large\bfseries}
+  {\thesubsection}{12pt}{}
+
+% ===== TOC DEPTH & FORMATTING =====
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{3}
+
+% ===== BIBLIOGRAPHY (biber + numeric style) =====
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=nyt,
+  language=english
+]{biblatex}
+\addbibresource{refs.bib}
+
+% ===== HEADERS & FOOTERS =====
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{BTL/Đồ Án môn Nhập môn AI}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ===== METADATA =====
+\title{Báo Cáo Bài Tập Lớn / Đồ Án}
+\author{Sinh viên HUST}
+\date{\today}

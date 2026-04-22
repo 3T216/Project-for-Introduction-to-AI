@@ -1,0 +1,232 @@
+% ===== CHƯƠNG 3: PHÂN TÍCH VÀ THIẾT KẾ =====
+
+\chapter{Phân Tích và Thiết Kế}
+
+\section{Phân tích yêu cầu}
+
+\subsection{Yêu cầu chức năng}
+
+\begin{enumerate}
+  \item \textbf{R1 --- Chọn ga từ danh sách:} Người dùng có thể chọn ga đi và ga đến từ dropdown danh sách 411 ga, có hỗ trợ typeahead/search nhanh.
+
+  \item \textbf{R2 --- Chọn ga từ bản đồ:} Người dùng click nút "Điểm đi" hoặc "Điểm đến", sau đó click vị trí trên bản đồ để chọn điểm. Hệ thống tự tìm ga gần nhất (tối đa 50 km).
+
+  \item \textbf{R3 --- Chọn thuật toán:} Người dùng chọn một trong 4 thuật toán (UCS, Greedy, A*, Dijkstra) từ dropdown.
+
+  \item \textbf{R4 --- Cấm tuyến:} Người dùng có thể chọn cấm một hoặc nhiều tuyến metro trước khi chạy thuật toán.
+
+  \item \textbf{R5 --- Cấm đoạn:} Người dùng có thể cấm một hoặc nhiều đoạn (cạnh) cụ thể giữa 2 ga.
+
+  \item \textbf{R6 --- Tìm đường:} Hệ thống xử lý request tìm đường, gọi thuật toán tương ứng, trả lại kết quả.
+
+  \item \textbf{R7 --- Hiển thị kết quả:} Hiển thị đường đi trên bản đồ bằng polyline, danh sách ga, quãng đường, chi phí, số node explored, danh sách tuyến.
+
+  \item \textbf{R8 --- Bộ lọc hiển thị:} Popover cho phép toggle hiển thị/ẩn trạm và từng tuyến (visual only, không ảnh hưởng pathfinding).
+
+  \item \textbf{R9 --- Nút "Tìm tuyến mới":} Reset route nhưng giữ nguyên ràng buộc đã chọn.
+
+  \item \textbf{R10 --- Responsive design:} Giao diện hoạt động tốt trên desktop (1280+px), tablet, mobile (360px+).
+\end{enumerate}
+
+\subsection{Yêu cầu phi chức năng}
+
+\begin{itemize}
+  \item \textbf{NF1 --- Hiệu năng:} Response time API $< 50$ ms cho query điển hình.
+  \item \textbf{NF2 --- Khả năng mở rộng:} Hỗ trợ tối thiểu 411 ga (current), tối đa 1000+ ga.
+  \item \textbf{NF3 --- Độ tin cậy:} 99%+ uptime (với data hợp lệ).
+  \item \textbf{NF4 --- Usability:} Giao diện trực quan, focus ring rõ ràng (accessibility AA).
+  \item \textbf{NF5 --- Caching:} Polyline cache để tránh tính toán lại khi toggle blocked lines.
+\end{itemize}
+
+\section{Kiến trúc hệ thống}
+
+Ứng dụng sử dụng kiến trúc **3-tầng** (Three-tier architecture):
+
+% ===== PLACEHOLDER HÌNH =====
+% TODO: Vẽ sơ đồ kiến trúc 3 tầng: Presentation Layer (Browser) ↔ Business Logic Layer (Service + Algorithms) ↔ Data Layer (Graph + JSON).
+% Gợi ý file: figures/architecture-diagram.png
+% Kích thước đề xuất: 0.8\textwidth
+\begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}{0.8\textwidth}\centering\vspace{3cm}%
+    \textit{[Placeholder: Kiến trúc 3-tầng hệ thống]}%
+  \vspace{3cm}\end{minipage}}
+  \caption{Kiến trúc hệ thống 3-tầng: Presentation, Business Logic, Data}
+  \label{fig:architecture}
+\end{figure}
+
+\subsection{Tầng Presentation (Giao diện)}
+
+- \textbf{Công nghệ:} HTML5, CSS3 (custom properties, Grid, Flexbox), JavaScript ES2020.
+- \textbf{Component chính:}
+  \begin{itemize}
+    \item Dropdown chọn ga (station mode).
+    \item Button chế độ pick điểm map.
+    \item Dropdown chọn thuật toán.
+    \item Checkbox cấm tuyến/đoạn.
+    \item Leaflet map với polyline route.
+    \item Popover filter (responsive).
+    \item Panel hiển thị kết quả (path, distance, cost, explored).
+  \end{itemize}
+- \textbf{API Client:} Fetch API để gọi backend.
+
+\subsection{Tầng Business Logic}
+
+- \textbf{Công nghệ:} Python, HTTP server (stdlib).
+- \textbf{Module chính:}
+  \begin{itemize}
+    \item \textbf{service.py}: Các hàm higher-level như `find_routes()`, `find_nearest_station()`, filter graph.
+    \item \textbf{algorithms.py}: Cài đặt 4 thuật toán (UCS, Greedy, A*, Dijkstra).
+    \item \textbf{geo.py}: Tính toán Haversine distance.
+    \item \textbf{server.py}: HTTP routing, request/response parsing.
+  \end{itemize}
+- \textbf{Endpoints API:} `/api/network`, `/api/routes`, `/api/nearest-station`, `/api/routes-by-points`.
+
+\subsection{Tầng Data}
+
+- \textbf{Công nghệ:} JSON file, in-memory Python dict.
+- \textbf{Dữ liệu chính:}
+  \begin{itemize}
+    \item \textbf{Station:} name, lat, lon (411 ga).
+    \item \textbf{Edge:} source, target, line, travel\_time, distance\_km.
+    \item \textbf{Graph:} Biểu diễn danh sách kề.
+  \end{itemize}
+- \textbf{Nguồn:} OpenStreetMap (file `data/shanghai_metro_osm.json`, 206 KB).
+
+\section{Mô hình dữ liệu}
+
+\begin{lstlisting}[language=Python, caption=Dataclass Station và Edge (metro\_app/data.py)]
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Station:
+    name: str
+    lat: float
+    lon: float
+
+@dataclass(frozen=True)
+class Edge:
+    target: str
+    travel_time: float
+    line: str
+    distance_km: float
+\end{lstlisting}
+
+Đồ thị được lưu: `graph: dict[str, list[Edge]]`
+
+Ví dụ: `graph["Hongqiao Railway Station"] = [Edge("Songhong Road", 6.0, "Line 2", 4.8), ...]`
+
+\section{Luồng xử lý request tìm đường}
+
+% ===== PLACEHOLDER HÌNH =====
+% TODO: Vẽ sequence diagram: Browser → Server → Service → Algorithms → return result → Browser display
+% Gợi ý file: figures/sequence-diagram-find-route.png
+% Kích thước đề xuất: 0.85\textwidth
+\begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{3.5cm}%
+    \textit{[Placeholder: Sequence diagram luồng xử lý tìm đường]}%
+  \vspace{3.5cm}\end{minipage}}
+  \caption{Sequence diagram: User click → API request → Algorithm → Response → Display result}
+  \label{fig:sequence}
+\end{figure}
+
+Luồng chi tiết:
+\begin{enumerate}
+  \item Người dùng click button "Tìm đường" trên UI.
+  \item JavaScript xây dựng request object (start, goal, algorithm, blocked\_lines, blocked\_segments).
+  \item Gửi HTTP GET request tới `/api/routes-by-points` hoặc `/api/routes`.
+  \item Server.py nhận request, parse parameters.
+  \item Gọi `service.find_routes()` với các tham số.
+  \item Service tạo graph đã lọc (loại bỏ tuyến/đoạn bị cấm).
+  \item Service gọi hàm thuật toán tương ứng (UCS/Greedy/A*/Dijkstra).
+  \item Thuật toán trả lại `SearchResult` (path, cost, explored\_count, line\_sequence, distance).
+  \item Service format JSON response.
+  \item Server trả lại HTTP 200 + JSON body.
+  \item JavaScript parse response, vẽ polyline, hiển thị kết quả.
+\end{enumerate}
+
+\section{Thiết kế API}
+
+\begin{table}[H]
+  \centering
+  \caption{Các API endpoint chính}
+  \label{tab:api}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Endpoint} & \textbf{Phương thức} & \textbf{Mô tả} \\
+    \midrule
+    \texttt{/api/network} & GET & Metadata mạng (stations, edges, lines, algorithms) \\
+    \texttt{/api/routes} & GET & Tìm đường bằng station names \\
+    \texttt{/api/nearest-station} & GET & Tìm ga gần nhất từ lat/lon \\
+    \texttt{/api/routes-by-points} & GET & Tìm đường từ lat/lon (tự map tới ga gần nhất) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Thiết kế giao diện người dùng}
+
+UI có 3 chế độ chính:
+
+\subsection{Chế độ "Chọn ga"}
+
+Người dùng:
+\begin{enumerate}
+  \item Chọn "Ga đi" từ dropdown (411 ga, sorted, hỗ trợ typeahead).
+  \item Chọn "Ga đến" từ dropdown.
+  \item (Tuỳ chọn) Tick "Tuyến bị cấm" để loại tuyến.
+  \item (Tuỳ chọn) Chọn 2 ga trong phần "Đoạn bị cấm", bấm "Thêm đoạn".
+  \item Chọn "Thuật toán".
+  \item Bấm "Tìm đường".
+\end{enumerate}
+
+% ===== PLACEHOLDER HÌNH =====
+% TODO: Screenshot chế độ chọn ga, hiển thị dropdown ga đi, ga đến, dropdown thuật toán, checkbox cấm tuyến
+% Gợi ý file: figures/ui-station-mode.png
+% Kích thước đề xuất: 0.75\textwidth
+\begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}{0.75\textwidth}\centering\vspace{3cm}%
+    \textit{[Placeholder: Screenshot chế độ chọn ga]}%
+  \vspace{3cm}\end{minipage}}
+  \caption{Giao diện chế độ "Chọn ga" với dropdown, checkbox cấm tuyến}
+  \label{fig:ui-station}
+\end{figure}
+
+\subsection{Chế độ "Click trên map"}
+
+Người dùng:
+\begin{enumerate}
+  \item Bấm nút "Điểm đi" → cursor → click map.
+  \item Hệ thống tìm ga gần nhất, lưu tọa độ.
+  \item Tương tự với "Điểm đến".
+  \item Bấm "Tìm đường từ điểm đã chọn".
+\end{enumerate}
+
+% ===== PLACEHOLDER HÌNH =====
+% TODO: Screenshot chế độ map mode với popover filter bên phải, thể hiện toàn bộ metro trên bản đồ, điểm pick được hiển thị
+% Gợi ý file: figures/ui-map-mode.png
+% Kích thước đề xuất: 0.8\textwidth
+\begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}{0.8\textwidth}\centering\vspace{3.5cm}%
+    \textit{[Placeholder: Screenshot chế độ map mode với filter popover]}%
+  \vspace{3.5cm}\end{minipage}}
+  \caption{Giao diện map mode: Leaflet map, filter popover (checkbox tuyến), highlight route}
+  \label{fig:ui-map}
+\end{figure}
+
+\subsection{Popover Filter}
+
+Bấm nút "⚙ Hiển thị" để mở popover:
+\begin{itemize}
+  \item Checkbox "Trạm" --- toggle marker ga.
+  \item Checkbox "Tất cả tuyến" (master) --- toggle hàng loạt.
+  \item 20 checkbox từng tuyến (Line 1, Line 2, ..., Line 17) --- toggle riêng.
+\end{itemize}
+
+\textbf{Lưu ý:} Filter này chỉ ảnh hưởng visual, không đổi kết quả pathfinding.
+
+\section{Kết luận chương}
+
+Chương này đã mô tả chi tiết thiết kế hệ thống, từ yêu cầu, kiến trúc 3-tầng, mô hình dữ liệu, luồng xử lý, API, đến giao diện người dùng. Những thiết kế này đảm bảo ứng dụng có thể mở rộng, dễ bảo trì, và cung cấp trải nghiệm người dùng tốt trên nhiều thiết bị.

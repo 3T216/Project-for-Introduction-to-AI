@@ -1,0 +1,149 @@
+% ===== CHƯƠNG 5: KẾT LUẬN =====
+
+\chapter{Kết Luận}
+
+\section{Những gì đã đạt được}
+
+Báo cáo này đã hoàn thành các mục tiêu chính sau:
+
+\subsection{Khía cạnh lý thuyết}
+
+\begin{enumerate}
+  \item \textbf{Nắm vững 4 thuật toán:} Hiểu rõ nguyên lý hoạt động, pseudocode, độ phức tạp, tính hoàn chỉnh, tính tối ưu của Uniform Cost Search, Greedy Best-First Search, A*, và Dijkstra.
+
+  \item \textbf{Phân tích heuristic admissibility:} Chứng minh rằng hàm heuristic dựa trên Haversine / 35 km/h là admissible, do đó A* được đảm bảo tối ưu.
+
+  \item \textbf{So sánh lý thuyết:} Xây dựng bảng so sánh 4 thuật toán theo nhiều tiêu chí (complete, optimal, time/space complexity, heuristic usage).
+\end{enumerate}
+
+\subsection{Khía cạnh ứng dụng thực tế}
+
+\begin{enumerate}
+  \item \textbf{Xây dựng ứng dụng web hoàn chỉnh:} Cài đặt 4 thuật toán bằng Python, xây dựng HTTP API RESTful với 4 endpoints, frontend responsive với Leaflet.js.
+
+  \item \textbf{Làm việc với dữ liệu thực:} Sử dụng 411 ga và 20 tuyến metro Thượng Hải từ OpenStreetMap, xử lý dữ liệu địa lý (Haversine), estimate chi phí edge từ khoảng cách và tốc độ.
+
+  \item \textbf{Kiến trúc 3-tầng:} Thiết kế và triển khai kiến trúc Presentation-Business Logic-Data, đảm bảo code modular, dễ bảo trì.
+
+  \item \textbf{Giao diện người dùng:} Hai chế độ chọn ga (dropdown + click map), bộ lọc popover, responsive design (desktop/tablet/mobile), accessibility AA.
+\end{enumerate}
+
+\subsection{Khía cạnh kỹ thuật}
+
+\begin{enumerate}
+  \item \textbf{Viết test toàn diện:} 29 test case (14 + 3 + 2 + 10), bao gồm unit test thuật toán, correctness test, integration test HTTP.
+
+  \item \textbf{Benchmark so sánh:} Chạy 4 thuật toán trên cùng cặp điểm, đo explored node count, chi phí, distance, rút ra những phát hiện về hiệu năng.
+
+  \item \textbf{Publish codebase:} Code được organize rõ ràng, naming convention consistent, docstring rõ ràng, sẵn sàng cho collaboration.
+
+  \item \textbf{Performance optimization:} Cache polyline để tránh tính toán lại khi toggle blocked lines ($\approx 10 \times$ speedup).
+\end{enumerate}
+
+\section{Hạn chế hiện tại}
+
+\subsection{Hạn chế về dữ liệu}
+
+\begin{enumerate}
+  \item \textbf{Chi phí ước lượng, không chính xác 100\%:} OSM không cung cấp thời gian chạy thực tế từng đoạn, nên chi phí được ước lượng từ công thức (khoảng cách / 35 km/h + phụ phí). Kết quả "tối ưu" là tối ưu **với mô hình này**, không nhất thiết tối ưu trong thực tế.
+
+  \item \textbf{Data quality issue:} Một số ga tên chỉ là số (ví dụ "1", "2") do OSM relation thiếu tag `name`. Một số ga có typo (ví dụ "National Exhibiation" thay vì "Exhibition").
+
+  \item \textbf{Không tính giờ cao điểm, đóng cửa tuyến, transfer time:} Mô hình giả định tốc độ metro đều là 35 km/h và có sẵn chuyển tuyến, không tính thực tế.
+\end{enumerate}
+
+\subsection{Hạn chế về thuật toán}
+
+\begin{enumerate}
+  \item \textbf{Dijkstra tính SSSP:} Triển khai Dijkstra tính toàn bộ distances từ start tới tất cả node, không dừng sớm khi tìm goal, dẫn tới explored count cao hơn UCS.
+
+  \item \textbf{Heuristic chỉ dựa trên khoảng cách:} Haversine là heuristic tổng quát nhưng không phải tối ưu nhất cho metro (không tính cấu trúc tuyến).
+\end{enumerate}
+
+\subsection{Hạn chế về giao diện}
+
+\begin{enumerate}
+  \item \textbf{Dropdown 411 ga rất dài:} Trên mobile, dropdown đôi khi khó sử dụng. Có thể cải thiện bằng search modal riêng.
+
+  \item \textbf{Nearest station dùng Haversine thẳng:} Không tính đường bộ, đường sông, hay địa hình thực tế từ điểm click tới ga.
+
+  \item \textbf{Không persist state:} F5 mất hết lựa chọn (blocked lines, picked points). Có thể lưu vào localStorage.
+
+  \item \textbf{Không có walking directions:} Không hiển thị hướng đi chi tiết (đi thẳng tới ga, xuống cầu thang, v.v.).
+\end{enumerate}
+
+\section{Hướng phát triển tương lai}
+
+\subsection{Cải thiện dữ liệu}
+
+\begin{enumerate}
+  \item \textbf{Lấy chi phí thực tế:} Nếu có API cung cấp thời gian chạy thực tế (ví dụ GTFS real-time data), có thể replace công thức hiện tại.
+
+  \item \textbf{Thêm transfer time:} Ước lượng thời gian chuyển tuyến dựa trên khoảng cách giữa hai ga gần nhau trên các tuyến khác nhau.
+
+  \item \textbf{Dữ liệu giờ cao điểm:} Nhập dữ liệu tốc độ khác nhau tuỳ theo giờ trong ngày.
+\end{enumerate}
+
+\subsection{Cải thiện thuật toán}
+
+\begin{enumerate}
+  \item \textbf{Cài đặt lại Dijkstra với early-exit:} Tính SSSP nhưng dừng ngay khi pop goal (hiện tại tính đầy đủ rồi mới reconstruct).
+
+  \item \textbf{Heuristic pattern database:} Precompute heuristic values từ một subset ga, tăng accuracy.
+
+  \item \textbf{Bidirectional search:} Tìm kiếm từ cả start và goal, gặp giữa đường, giảm không gian tìm kiếm.
+
+  \item \textbf{Thêm thuật toán khác:} Bellman-Ford (xử lý edge weight âm nếu có), Floyd-Warshall (all-pairs shortest path), Contraction Hierarchies (tối ưu để query nhanh).
+\end{enumerate}
+
+\subsection{Cải thiện giao diện}
+
+\begin{enumerate}
+  \item \textbf{Search modal thay dropdown:} Cải thiện UX trên mobile, hỗ trợ fuzzy search station name.
+
+  \item \textbf{Persist state:} Lưu lựa chọn vào localStorage hoặc URL query string, F5 vẫn giữ nguyên.
+
+  \item \textbf{Walking directions:} Tích hợp OSRM hoặc Mapbox Directions API để cung cấp hướng đi chi tiết từ điểm user click tới ga.
+
+  \item \textbf{Compare multiple routes:} Hiển thị cùng lúc kết quả của 4 thuật toán, giúp user so sánh.
+
+  \item \textbf{Share URL:} Tạo URL ngắn gọn với tham số start, goal, algorithm, dễ chia sẻ.
+
+  \item \textbf{Dark mode:} Hỗ trợ prefers-color-scheme.
+\end{enumerate}
+
+\subsection{Cải thiện kiểm thử và deployment}
+
+\begin{enumerate}
+  \item \textbf{End-to-end test:} Selenium/Playwright test giao diện browser.
+
+  \item \textbf{Load test:} Apache JMeter hoặc Locust, test performance với 100+ concurrent user.
+
+  \item \textbf{Docker + CI/CD:} GitHub Actions tự động run test, build Docker image, deploy lên cloud (AWS/GCP/Heroku).
+
+  \item \textbf{Monitoring \& logging:} Thêm ELK stack (Elasticsearch, Logstash, Kibana) để monitor production.
+\end{enumerate}
+
+\subsection{Cải thiện tài liệu}
+
+\begin{enumerate}
+  \item \textbf{API documentation:} OpenAPI/Swagger specification.
+
+  \item \textbf{Architecture decision records (ADR):} Ghi lại lý do chọn mỗi công nghệ, cấu trúc.
+
+  \item \textbf{Contributing guide:} Hướng dẫn cho contributor muốn fork + PR.
+
+  \item \textbf{Video demo:} Screencast hướng dẫn cách dùng ứng dụng.
+\end{enumerate}
+
+\section{Cảm ơn}
+
+Tác giả xin cảm ơn \gvname{} đã hướng dẫn chi tiết trong suốt quá trình thực hiện bài tập lớn này. Cảm ơn các giáo viên khác trong Khoa Công Nghệ Thông Tin đã cung cấp tài liệu tham khảo quý báu.
+
+Cảm ơn cộng đồng nguồn mở --- OpenStreetMap (dữ liệu), Leaflet.js (bản đồ), Python Standard Library (backend) --- đã làm cho dự án này có thể hoàn thành.
+
+Cảm ơn những bạn cùng lớp đã trao đổi ý kiến, giúp đỡ em trong quá trình học tập.
+
+\section{Tài liệu tham khảo}
+
+Xem phần "Tài liệu tham khảo" ở cuối báo cáo.
