@@ -136,14 +136,17 @@ Nếu không cài TeX Live cục bộ:
 2. Vào https://www.overleaf.com
 3. Click "New Project" → "Upload Project"
 4. Chọn file zip
-5. Menu → Compiler → chọn **XeLaTeX**
-6. Bấm Recompile
+5. **Menu (≡ góc trái trên) → Settings → Compiler → đổi thành `XeLaTeX`** ⚠️ BẮT BUỘC
+6. Bấm "Recompile"
+
+> **Nếu "No PDF" / lỗi compile:** 99% do quên bước 5 (Overleaf mặc định `pdfLaTeX`, không chạy được `fontspec`/`polyglossia`). Xem tab "Logs and output files" để confirm lỗi nếu đã set XeLaTeX mà vẫn lỗi.
 
 ## Troubleshooting
 
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-----------|---------|
-| `fontspec error: font not found "times"` | Font Times New Roman không cài | Đổi sang Liberation Serif hoặc DejaVu Serif trong `preamble.tex` |
+| **No PDF trên Overleaf** | Compiler đang là pdfLaTeX | Menu → Settings → Compiler → **XeLaTeX**, rồi Recompile |
+| `fontspec error: font not found "times"` | Font Times New Roman không cài | Đã dùng `TeX Gyre Termes` (clone của Times, luôn có). Nếu vẫn lỗi đổi sang `Liberation Serif` |
 | `Undefined control sequence \setdefaultlanguage` | Polyglossia không cài | `tlmgr install polyglossia` |
 | `biber not found` | Biber chưa cài hoặc không trong PATH | `tlmgr install biber` hoặc thêm bin path vào PATH |
 | `vietnamese language not available` | Polyglossia outdated | `tlmgr update --self --all` |
