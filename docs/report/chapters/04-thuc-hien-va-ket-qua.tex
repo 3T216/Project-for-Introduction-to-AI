@@ -43,25 +43,25 @@
 
 \begin{lstlisting}[caption=Cấu trúc thư mục project]
 Project-for-Introduction-to-AI/
-├── app.py                          # Entry point
-├── server.py                       # HTTP server + endpoints
-├── metro_app/
-│   ├── __init__.py
-│   ├── data.py                     # Station, Edge, load_network()
-│   ├── algorithms.py               # UCS, Greedy, A*, Dijkstra
-│   ├── service.py                  # Business logic (find_routes, etc.)
-│   ├── geo.py                      # haversine_km()
-│   └── osm_import.py               # (Optional) Refresh data from Overpass API
-├── web/
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── data/
-│   └── shanghai_metro_osm.json     # 411 ga, 20 tuyến (206 KB)
-├── tests/
-│   ├── test_algorithms.py
-│   └── test_http_server.py
-└── README.md
+|-- app.py                          # Entry point
+|-- server.py                       # HTTP server + endpoints
+|-- metro_app/
+|   |-- __init__.py
+|   |-- data.py                     # Station, Edge, load_network()
+|   |-- algorithms.py               # UCS, Greedy, A*, Dijkstra
+|   |-- service.py                  # Business logic (find_routes, etc.)
+|   |-- geo.py                      # haversine_km()
+|   `-- osm_import.py               # (Optional) Refresh data from Overpass API
+|-- web/
+|   |-- index.html
+|   |-- app.js
+|   `-- styles.css
+|-- data/
+|   `-- shanghai_metro_osm.json     # 411 ga, 20 tuyen (206 KB)
+|-- tests/
+|   |-- test_algorithms.py
+|   `-- test_http_server.py
+`-- README.md
 \end{lstlisting}
 
 \section{Thực hiện 4 thuật toán}
