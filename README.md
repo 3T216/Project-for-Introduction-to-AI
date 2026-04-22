@@ -1,10 +1,11 @@
 # Ứng dụng Chỉ Đường Metro Thượng Hải
 
-Web app mô phỏng chỉ đường bằng tàu điện ngầm ở Thượng Hải, dùng dữ liệu mạng metro thật từ OpenStreetMap và ba thuật toán tìm đường cổ điển:
+Web app mô phỏng chỉ đường bằng tàu điện ngầm ở Thượng Hải, dùng dữ liệu mạng metro thật từ OpenStreetMap và bốn thuật toán tìm đường cổ điển:
 
 - `Uniform Cost Search (UCS)`
 - `Greedy Best-First Search`
 - `A* Search`
+- `Dijkstra`
 
 Phát triển cho môn **Nhập môn Trí tuệ Nhân tạo (Introduction to AI)**.
 
@@ -99,7 +100,7 @@ Project-for-Introduction-to-AI/
 │   ├── __init__.py
 │   ├── data.py                     # Nạp dữ liệu mạng metro (OSM hoặc sample)
 │   ├── osm_import.py               # Tải + chuẩn hoá từ Overpass API
-│   ├── algorithms.py               # UCS, Greedy Best-First, A*
+│   ├── algorithms.py               # UCS, Greedy Best-First, A*, Dijkstra
 │   ├── service.py                  # Business logic (tìm đường, filter, nearest)
 │   └── geo.py                      # Haversine distance (dùng chung)
 │
@@ -163,18 +164,20 @@ Bấm nút `⚙ Hiển thị` ở góc trên-phải của map để mở popover
 
 ## Thuật toán & So sánh
 
-| Tiêu chí | UCS | Greedy Best-First | A* |
-|----------|:---:|:-----------------:|:--:|
-| Hoàn chỉnh (Complete) | ✅ | ✅* | ✅ |
-| Tối ưu (Optimal) | ✅ | ❌ | ✅** |
-| Dùng heuristic | ❌ | ✅ | ✅ |
-| Time complexity (worst) | O(b^(C*/ε)) | O(b^m) | O(b^(C*/ε)) |
-| Space complexity | O(b^(C*/ε)) | O(b^m) | O(b^(C*/ε)) |
-| Số node explored (ví dụ Hongqiao→Century) | 170 | 15 ⚡ | 64 |
-| Use case | Baseline, đảm bảo tối ưu | Nhanh, chấp nhận không tối ưu | Cân bằng tốc độ + tối ưu |
+| Tiêu chí | UCS | Greedy Best-First | A* | Dijkstra |
+|----------|:---:|:-----------------:|:--:|:--------:|
+| Hoàn chỉnh (Complete) | ✅ | ✅* | ✅ | ✅ |
+| Tối ưu (Optimal) | ✅ | ❌ | ✅** | ✅ |
+| Dùng heuristic | ❌ | ✅ | ✅ | ❌ |
+| Time complexity (worst) | O(b^(C*/ε)) | O(b^m) | O(b^(C*/ε)) | O((V+E) log V) |
+| Space complexity | O(b^(C*/ε)) | O(b^m) | O(b^(C*/ε)) | O(V) |
+| Số node explored (ví dụ Hongqiao→Century) | 170 | 15 ⚡ | 64 | ≥170 |
+| Use case | Baseline, đảm bảo tối ưu | Nhanh, chấp nhận không tối ưu | Cân bằng tốc độ + tối ưu | Full SSSP, so sánh sư phạm |
 
 *Greedy hoàn chỉnh với đồ thị hữu hạn và tracking `visited`.
 **A\* tối ưu khi heuristic **admissible** (không overestimate). Project này dùng Haversine / 35 km/h, luôn nhỏ hơn chi phí thực → admissible.
+
+**UCS vs Dijkstra:** UCS là goal-directed — dừng ngay khi pop goal khỏi heap, tối ưu cho 1 cặp (start, goal). Dijkstra tính toàn bộ **Single-Source Shortest Path tree** (không dừng sớm), sau đó trích path đến goal. Kết quả `total_cost` như nhau, nhưng `explored_nodes` của Dijkstra ≥ UCS — minh hoạ lợi thế early-exit của UCS/A*.
 
 Chi tiết cài đặt: [metro_app/algorithms.py](metro_app/algorithms.py)
 
@@ -240,7 +243,7 @@ Metadata mạng.
   "stations": [{"name": "...", "lat": 31.xx, "lon": 121.xx}, ...],
   "edges":    [{"source": "...", "target": "...", "line": "...", "distance_km": 2.1, "travel_time": 4.5}, ...],
   "lines":    ["1", "2", "3", ...],
-  "algorithms": ["ucs", "greedy", "astar"]
+  "algorithms": ["ucs", "greedy", "astar", "dijkstra"]
 }
 ```
 
@@ -286,6 +289,7 @@ Tham số: `start_lat`, `start_lon`, `goal_lat`, `goal_lon`, + optionals như `/
                                    │ UCS            │    │ Station/Edge   │
                                    │ Greedy BFS     │    │ load_network() │
                                    │ A*             │    └────────┬───────┘
+                                   │ Dijkstra       │
                                    └────────┬───────┘             │
                                             ▼                     ▼
                                    ┌────────────────┐    ┌────────────────┐
@@ -304,8 +308,8 @@ Tham số: `start_lat`, `start_lon`, `goal_lat`, `goal_lon`, + optionals như `/
 python -m unittest discover -s tests -v
 ```
 
-**Tổng:** 27 tests (~0.6s), gồm:
-- **17 tests backend** ([tests/test_algorithms.py](tests/test_algorithms.py)): thuật toán, filter tuyến/đoạn, geo bounds, same-station, pure greedy
+**Tổng:** 29 tests (~0.6s), gồm:
+- **19 tests backend** ([tests/test_algorithms.py](tests/test_algorithms.py)): thuật toán (14 algo + 3 correctness + 2 Dijkstra), filter tuyến/đoạn, geo bounds, same-station, pure greedy
 - **10 tests HTTP** ([tests/test_http_server.py](tests/test_http_server.py)): 4 endpoint × (happy path + malformed input)
 
 ---

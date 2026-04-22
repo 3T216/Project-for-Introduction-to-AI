@@ -1,7 +1,7 @@
 import unittest
 
 from metro_app.data import DATA_SOURCE, GRAPH, STATIONS
-from metro_app.algorithms import greedy_best_first_search
+from metro_app.algorithms import dijkstra_search, greedy_best_first_search, uniform_cost_search
 from metro_app.service import (
     available_algorithms,
     available_lines,
@@ -87,7 +87,7 @@ class RouteSearchTests(unittest.TestCase):
         self.assertEqual(payload["results"][0]["algorithm"], "Greedy Best-First Search")
 
     def test_available_algorithms_are_exposed(self) -> None:
-        self.assertEqual(available_algorithms(), ["ucs", "greedy", "astar"])
+        self.assertEqual(available_algorithms(), ["ucs", "greedy", "astar", "dijkstra"])
 
     def test_find_routes_respects_blocked_segments(self) -> None:
         results = find_routes(
@@ -143,6 +143,24 @@ class RouteSearchTests(unittest.TestCase):
         self.assertEqual(result1.path, result2.path)
         self.assertEqual(result1.path[0], start)
         self.assertEqual(result1.path[-1], goal)
+
+
+    def test_dijkstra_finds_optimal_path(self) -> None:
+        start, goal = "Hongqiao Railway Station", "Century Avenue"
+        dijkstra_result = dijkstra_search(GRAPH, start, goal)
+        ucs_result = uniform_cost_search(GRAPH, start, goal)
+
+        self.assertEqual(dijkstra_result.algorithm, "Dijkstra")
+        self.assertEqual(dijkstra_result.path[0], start)
+        self.assertEqual(dijkstra_result.path[-1], goal)
+        self.assertEqual(dijkstra_result.total_cost, ucs_result.total_cost)
+
+    def test_dijkstra_explores_more_or_equal_than_ucs(self) -> None:
+        start, goal = "Hongqiao Railway Station", "Century Avenue"
+        dijkstra_result = dijkstra_search(GRAPH, start, goal)
+        ucs_result = uniform_cost_search(GRAPH, start, goal)
+
+        self.assertGreaterEqual(dijkstra_result.explored_nodes, ucs_result.explored_nodes)
 
 
 if __name__ == "__main__":

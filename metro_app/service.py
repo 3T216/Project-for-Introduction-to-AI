@@ -3,6 +3,7 @@ from __future__ import annotations
 from metro_app.algorithms import (
     SearchResult,
     a_star_search,
+    dijkstra_search,
     greedy_best_first_search,
     uniform_cost_search,
 )
@@ -67,7 +68,7 @@ def build_filtered_graph(
 
 
 def available_algorithms() -> list[str]:
-    return ["ucs", "greedy", "astar"]
+    return ["ucs", "greedy", "astar", "dijkstra"]
 
 
 def run_algorithm(
@@ -83,6 +84,8 @@ def run_algorithm(
         return greedy_best_first_search(graph, STATIONS, start, goal)
     if normalized == "astar":
         return a_star_search(graph, STATIONS, start, goal)
+    if normalized == "dijkstra":
+        return dijkstra_search(graph, start, goal)
     raise ValueError(f"Thuật toán không hợp lệ: {algorithm}.")
 
 

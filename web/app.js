@@ -57,6 +57,7 @@ const algorithmLabels = {
   ucs: "Uniform Cost Search",
   greedy: "Greedy Best-First Search",
   astar: "A* Search",
+  dijkstra: "Dijkstra",
 };
 
 const state = {

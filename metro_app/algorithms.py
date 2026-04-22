@@ -158,3 +158,39 @@ def a_star_search(
                 heapq.heappush(queue, (priority, new_cost, next(tracker), edge.target))
 
     raise ValueError(f"Cannot reach {goal} from {start}.")
+
+
+def dijkstra_search(
+    graph: dict[str, list[Edge]],
+    start: str,
+    goal: str,
+) -> SearchResult:
+    dist: dict[str, float] = {start: 0.0}
+    came_from: dict[str, tuple[str, str] | None] = {start: None}
+    heap: list[tuple[float, str]] = [(0.0, start)]
+    explored = 0
+
+    while heap:
+        cost, node = heapq.heappop(heap)
+        if cost > dist[node]:  # stale entry
+            continue
+        explored += 1
+        for edge in graph.get(node, []):
+            new_cost = cost + edge.travel_time
+            if new_cost < dist.get(edge.target, float("inf")):
+                dist[edge.target] = new_cost
+                came_from[edge.target] = (node, edge.line)
+                heapq.heappush(heap, (new_cost, edge.target))
+
+    if goal not in dist:
+        raise ValueError(f"Không có đường từ {start} đến {goal}.")
+
+    path, lines = _reconstruct_path(came_from, goal)
+    return SearchResult(
+        algorithm="Dijkstra",
+        path=path,
+        total_cost=round(dist[goal], 2),
+        explored_nodes=explored,
+        line_sequence=lines,
+        total_distance_km=_path_distance(graph, path, lines),
+    )
